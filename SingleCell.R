@@ -653,10 +653,10 @@ check.geneset.batch <- function(d, norm.d, gsoi.l, min.sample.n=3, class.v, outp
 }
 
 ## data dir is 10x's data directory containing: barcodes.tsv, genes.tsv, matrix.mtx
-read.10x.mtx <- function(data.dir){
+read.10x.mtx <- function(data.dir, min.genes = 1000, ...){
   library(Seurat)
   t <- Read10X(data.dir = data.dir)
-  t2 <- CreateSeuratObject(t)
+  t2 <- CreateSeuratObject(t, min.genes = min.genes, ...)
   t3 <- as.matrix(t2@raw.data)
   invisible(t3)
 }
