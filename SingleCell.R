@@ -127,7 +127,12 @@ sc.deg <- function(d, group1, group2, group1.name='group1', group2.name='group2'
       res <- cbind(raw.d[rownames(ps), ], ps,  fdr=fdr)
     }else{
       if(method == 'phyper'){
-        ps.t <- apply(raw.d, 1, function(x) phyper(x[1], x[1] + x[2], n = x[3]+x[4]-x[1]-x[2], k = x[3]))
+        ## ps.t <- apply(raw.d, 1, function(x) phyper(x[1], x[1] + x[2], n = x[3]+x[4]-x[1]-x[2], k = min(x[3:4])))
+        if(raw.d[1,3] > raw.d[1,4]){
+          ps.t <- apply(raw.d, 1, function(x) phyper(x[2], x[1], n = x[3] - x[1], k = x[4]))
+        }else{
+          ps.t <- apply(raw.d, 1, function(x) phyper(x[1], x[2], n = x[4] - x[2], k = x[3]))
+        }
       }
       if(method == 'prop.test'){
         ps.t <- apply(raw.d, 1, function(x) prop.test(x[1], x[3], p=x[2]/x[4])$p.value)  
@@ -139,6 +144,9 @@ sc.deg <- function(d, group1, group2, group1.name='group1', group2.name='group2'
       or <- (raw.d[,1]/raw.d[,3])/(raw.d[, 2]/raw.d[, 4])
       res <- cbind(raw.d[names(ps), ], pvalue=ps, or=or[names(ps)],  fdr=fdr)
     }
+    b <- res[, 1] == 0 & res[,2] == 0
+    res[b, 'pvalue'] <- NA
+    res[b, 'fdr'] <- NA
     res <- res[order(res[, 'pvalue']), ]
   }else{
     warning("d should have been normlized.")
@@ -550,15 +558,22 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
   
   if(gsea.b){
     for(i in 1:length(deg.l)){
-      gsea.kegg <- batch.gsea(sort(deg.l[[i]][, 'or']), genesets = hs.gi$kegg)
-      gsea.kegg <- data.frame(gsea.kegg, hs.gi$kegg.info[rownames(gsea.kegg), ])
-      b <- gsea.kegg[, "pvalue"] < 0.05/nrow(gsea.kegg) & gsea.kegg[, "ES"] > 0
-      gsea.kegg.l[[i]] <- gsea.kegg
+      gsea.res <- batch.gsea.count.data(count.data.deg = deg.l[[i]])
+      gsea.kegg.l[[i]] <- gsea.res$kegg
+      gsea.go.l[[i]] <- gsea.res[c('go.bp', 'go.mf', 'go.cc')]
       
-      gsea.go <- batch.gsea(sort(deg.l[[i]][, 'or']), genesets = hs.gi$go)
-      gsea.go <- data.frame(gsea.go, hs.gi$go.info[rownames(gsea.go), ])
-      b <- gsea.go[, "pvalue"] < 0.05/nrow(gsea.go) & gsea.go[, "ES"] > 0 & gsea.go[, "ontology"] == 'BP'
-      gsea.go.l[[i]] <- gsea.go
+      if(0){ ## obsolete!!!
+        gsea.kegg <- batch.gsea(sort(deg.l[[i]][, 'or']), genesets = hs.gi$kegg)
+        gsea.kegg <- data.frame(gsea.kegg, hs.gi$kegg.info[rownames(gsea.kegg), ])
+        ## b <- gsea.kegg[, "pvalue"] < 0.05/nrow(gsea.kegg) & gsea.kegg[, "ES"] > 0
+        gsea.kegg.l[[i]] <- gsea.kegg
+        
+        gsea.go <- batch.gsea(sort(deg.l[[i]][, 'or']), genesets = hs.gi$go)
+        gsea.go <- data.frame(gsea.go, hs.gi$go.info[rownames(gsea.go), ])
+        ##b <- gsea.go[, "pvalue"] < 0.05/nrow(gsea.go) & gsea.go[, "ES"] > 0 & gsea.go[, "ontology"] == 'BP'
+        gsea.go.l[[i]] <- gsea.go
+      }
+
       
       if(print.gsea){
         print.n <- 30
@@ -693,20 +708,27 @@ compile.geneset.of.interest <- function(){
   load('~/data/geneAnnotation/human/gencode.v27.annotation.RData')
   trav.ind <- grep('^TRAV', gencode$gene.gr$gene_name)
   t1 <- gencode$gene.gr$gene_name[trav.ind]
+  print(1)
   t2 <- get.gene.info(t1)
   tt <- t2[, c('Symbol', 'GeneID')]
   tt <- unique.matrix(tt)
   trav.genes <- tt[, 'Symbol']
   names(trav.genes) <- tt[, 'GeneID']
   
+  ## apoptosis genes
+  load(file='~/data/pathways/MSigDB/MSigDB_2018.RData')
+  apoptosis.genes <- get.my.geneset.format(Reduce(intersect,msigdb.gs.l[apoptosis.gs.names[c(1:3)]]))
+  
   ## Human endometrial stromal cells: CD146，IGFBP-1, PRL, TF, PAI-1，CD45
   t <- c('CD146', 'IGFBP1', 'PRL', 'PAI-1', 'CD45') ## 'TF' not sure which genes
+  print(2)
   tt <- get.gene.info(t)
   stromal.genes <- tt[, 'Symbol']
   names(stromal.genes) <- tt[, 'GeneID']
   
   ## Human endometrial epithelial cells:EpCAM
   t <- 'EPCAM'
+  print(3)
   tt <- get.gene.info(t)
   epithelial.genes <- tt[, 'Symbol']
   names(epithelial.genes) <- tt[, 'GeneID']
@@ -722,18 +744,24 @@ compile.geneset.of.interest <- function(){
   load('~/data/geneAnnotation/human/TFs/human_tfs.RData')
   tfs <- tfs.info[, "Symbol"]
   names(tfs) <- tfs.info[, "GeneID"]
+  gsoi.l <- list(immune=names(immune.genes), epithelial=names(epithelial.genes), stromal=names(stromal.genes), 
+                 trav=names(trav.genes), tfs = names(tfs))
   
-  gsoi.l <- list(immune=immune.genes, epithelial=epithelial.genes, stromal=stromal.genes, trav=trav.genes, 
-                 tfs = tfs)
-  
-  immune.core <- gsoi.l[['immune']][is.element(gsoi.l[['immune']], 
-                                               c('CD4', 'CD8A', 'CD8B', 'CD3G', 'CD3E', 'CD3D', 'CD19', 'PTPRC', 
-                                                 'MS4A1', 'FOXP3', 'IFNG', 'PRF1', 'GZMA', 'GZMK', 'CTLA4', 'IDO1', 
-                                                 'LAG3', 'TIM3', 'PDCD1', 'CD274', 'CD276', 'CCR7', 'HLA-A', 'HLA-B', 
-                                                 'HLA-C', 'HLA-DRB1', 'HLA-DPB1', 'HLA-DQB1', 'TAP1', 'TAP2', 'B2M'))]
-
+  ## immune core
+  immune.core <- c('CD4', 'CD8A', 'CD8B', 'CD3G', 'CD3E', 'CD3D', 'CD19', 'PTPRC', 'MS4A1', 'FOXP3', 'IFNG', 
+                   'PRF1', 'GZMA', 'GZMK', 'CTLA4', 'IDO1', 'LAG3', 'TIM3', 'PDCD1', 'CD274', 'CD276', 
+                   'VTCN1', 'CCR7', 'HLA-A', 'HLA-B', 'HLA-C', 'HLA-DRB1', 'HLA-DPB1', 'HLA-DQB1', 
+                   'TAP1', 'TAP2', 'B2M')
   gsoi.l[['immune.core']] <- immune.core
 
+  ## traficking to Tumor
+  traffick2Tumor <- c('CX3CL1', 'CXCL9', 'CXCL10', 'CCL5', 'ICAM1', 'ITGB2', 'ITGAL', 'SELE', 'SELP', 'SELL')
+  print(4)
+  t2 <- get.gene.info(traffick2Tumor)
+  t2 <- t2[t2[,1] != 'SELENOP', ]
+  gsoi.l[['traffickToTumor']] <- get.my.geneset.format(t2[,3])
+  
+  ## Immune, stroma and epithelia
   t1 <- c('CD247', 'CD3G', 'CD3E', 'CD3D', ## CD3 family, cD247 = CD3-ZETA/CD3H/CD3Q/CD3Z 
          'FOXP3', ## Treg
          'CD4', 'CD8A', 'CD8B', 
@@ -748,11 +776,56 @@ compile.geneset.of.interest <- function(){
          'MCAM',  ## MCAM == CD146. Endothelial Cell
          'EPCAM'  ## CD326 == EPCAM. Epithelial Cell
          )
+  print(5)
   t2 <- get.gene.info(t1)
   gsoi.l[['immune.cell.marker']] <- get.my.geneset.format(t2[,3])
+  
+  ## cell cycle
+  ## source of cell cycle genes: https://www.cell.com/cell/fulltext/S0092-8674(15)00549-8  Figure 4.
+  ## cell.cycle.genes <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", "4176")
+  ## names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2', 'MCM3', 'MCM4', 'MCM5', 'MCM6', 'MCM7')
+  gsoi.l[['cell.cycle']] <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", "4176")
+  
+  ## TCR
+  ## tcr.genes <- c('6955', '6957', '6964', '6965', '28755')
+  ## names(tcr.genes) <- c('TRA', 'TRB', 'TRD', 'TRG', 'TRAC')
+  gsoi.l[['tcr']] <- c('6955', '6957', '6964', '6965', '28755')
+  
+  ## HLA
+  ## hla.genes <- c('3105', '3106', '3107', '3115', '3119', '3123')
+  ## names(hla.genes) <- c('HLA-A', 'HLA-B', 'HLA-C', 'HLA-DPB1', 'HLA-DQB1','HLA-DRB1')
+  gsoi.l[['hla']] <- c('3105', '3106', '3107', '3115', '3119', '3123')
+  
+  ## dna.repair
+  ## dna.repair.genes <- c("5424", "5426", "7157", "7273", "8289", "94025")
+  ## names(dna.repair.genes) <- c('POLD1', 'POLE', 'TP53', 'TTN', 'ARID1A', 'MUC16' )
+  gsoi.l[['dna.repair']] <- c("5424", "5426", "7157", "7273", "8289", "94025")
+  
   for(gs.name in names(gsoi.l)){
+    print(gs.name)
     gsoi.l[[gs.name]] <- get.my.geneset.format(gsoi.l[[gs.name]])
   }
   save(gsoi.l, file='~/data/geneAnnotation/human/gsoi.l.for.singleCellAnalysis.RData')
   invisible(gsoi.l)
+}
+
+
+## count.data.deg should be output of sc.deg
+batch.gsea.count.data <- function(count.data.deg){
+  if(!exists('hs.gi')){
+    load('~/data/geneAnnotation/human/hs.gi.RData')    
+  }
+  
+  cd.deg <- count.data.deg
+  b <- (cd.deg[, "group1.gc"] > cd.deg[, "group1.size"]/10 |
+          cd.deg[, 'group2.gc'] > cd.deg[, "group2.size"]/10)
+  gsea.kegg <- batch.gsea(sort(cd.deg[b, 'pvalue']), genesets = hs.gi$kegg)
+  gsea.kegg <- data.frame(gsea.kegg, hs.gi$kegg.info[rownames(gsea.kegg), ])
+  
+  gsea.go <- batch.gsea(sort(cd.deg[, "pvalue"]), genesets = hs.gi$go)
+  gsea.go <- data.frame(gsea.go, hs.gi$go.info[rownames(gsea.go), ])
+  
+  invisible(list(kegg=gsea.kegg, go.bp=gsea.go[gsea.go[, "ontology"]=='BP', ], 
+                 go.cc=gsea.go[gsea.go[, "ontology"]=='CC', ],
+                 go.mf=gsea.go[gsea.go[, "ontology"]=='MF', ]))
 }
