@@ -734,7 +734,7 @@ compile.geneset.of.interest <- function(){
   names(epithelial.genes) <- tt[, 'GeneID']
   
   ## immuno genes
-  t <- read.table('~/XKYBio/A_研发/Platforms/知识库/CellTypeMarkers/ImmuneAssociatedGenes.txt', 
+  t <- read.table('~/data/geneAnnotation/human/ImmuneAssociatedGenes.txt', 
                   sep='\t', header=T, as.is =T)
   t <- unique.matrix(t[, 2:3])
   immune.genes <- t[, 1]
@@ -761,10 +761,22 @@ compile.geneset.of.interest <- function(){
   t2 <- t2[t2[,1] != 'SELENOP', ]
   gsoi.l[['traffickToTumor']] <- get.my.geneset.format(t2[,3])
   
+  ## ICs
+  t1 <- c('PDCD1', 'CD274', 'CD276',  'VTCN1', 'BTLA', 'VSIR', 'TNFRSF4',   ## TNFRSF4 == OX40
+          'IDO1', 'IDO2', 'CTLA4', 'LAG3', 'TIM3', 'TGFB1', 'TGFB2', 'TGFB3')  ## 
+  t2 <- get.gene.info(t1)
+  gsoi.l[['immuCheck']] <- get.my.geneset.format(t2[,3])
+  
+  ## Infiltration of T cells into tumors
+  t1 <- c('ICAM1', 'SELE', 'SELP', 'SELL', 'ITGB2', 'ITGAL')  ## LFA-1 == ITGB2 or ITGAL
+  t2 <- get.gene.info(t1)
+  gsoi.l[['til']] <- get.my.geneset.format(t2[,3])
+  
   ## Immune, stroma and epithelia
   t1 <- c('CD247', 'CD3G', 'CD3E', 'CD3D', ## CD3 family, cD247 = CD3-ZETA/CD3H/CD3Q/CD3Z 
          'FOXP3', ## Treg
          'CD4', 'CD8A', 'CD8B', 
+         'CD38', 'SDC1', 'TNFRSF17', ## Plasma cells; TNFRSF17 ='BCMA', 
          'CD34', ## stem cell, endothelial cell
          'CD19', 'MS4A1',   ## MS4A1 == CD20. B cell 
          'ITGAX', 'IL3RA',  ## ITGAX == CD11c; CD123==IL3RA. DC cell
@@ -776,7 +788,6 @@ compile.geneset.of.interest <- function(){
          'MCAM',  ## MCAM == CD146. Endothelial Cell
          'EPCAM'  ## CD326 == EPCAM. Epithelial Cell
          )
-  print(5)
   t2 <- get.gene.info(t1)
   gsoi.l[['immune.cell.marker']] <- get.my.geneset.format(t2[,3])
   
