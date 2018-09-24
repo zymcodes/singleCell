@@ -209,6 +209,51 @@ plot.mean.sd <- function(d, ...){
   invisible(sd/av)
 }
 
+check.single.gene.01 <- function(umi.d, gene=NULL, cell.sizes, simple.res=FALSE){
+  if(is.matrix(umi.d)){
+    ss <- colnames(umi.d)
+    gi <- get.gene.info(gene)
+    if(nrow(gi) > 1){
+      print(gi[, 1:4])
+      stop('please select one gene (GeneID can be unique).')
+    }
+    count <- umi.d[gi[1, 'GeneID'], ]
+  }else{
+    ss <- names(umi.d)
+    count <- umi.d
+  }
+  
+  if(length(ss) == 0 || length(setdiff(ss, names(cell.sizes))) > 0){
+    stop('umi.d does not have name or cell.sizes is not complete.')
+  }
+  
+  cell.sizes <- cell.sizes[names(count)]
+
+  r <- count/cell.sizes
+  min.r <- min(r[r > 0])
+  test.res <- apply(cbind(count, cell.sizes), 1, 
+                    function(x, p) prop.test(x[1], x[2], p=p, alternative = 'less'), 
+                    p=min.r)
+  ps <- sapply(test.res, function(x) x$p.value)
+  res <- cbind(count=count, cell.size=cell.sizes, pvalue=ps, min.r=min.r)
+  
+  if(simple.res){
+    invisible(ps)
+  }else{
+    invisible(res)
+  }
+}
+
+get.present.m <- function(umi.d){
+  res.m <- umi.d - umi.d
+  cell.sizes <- apply(umi.d, 2, sum)
+  d <- umi.d[apply(umi.d, 1, max) > 0, ]
+  pm <- apply(d, 1, check.single.gene.01, cell.sizes = cell.sizes, simple.res=FALSE)
+  pm <- t(pm)
+  res.m[rownames(pm), colnames(pm)] <- pm
+  invisible(res.m)
+}
+
 ## 'mean.n0' == 'mean without 0 (tranform 0 to NA)'.
 ## 'tmm', 'rle', 'upperquartile' come from edgeR. 
 ## TMM: weighted trimmed mean of M-values (to the reference.
@@ -343,6 +388,14 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
     cex <- 2 * (1 + (50 - nrow(dh))/50)
   }
   pdf(file=paste(output.prefix, '_', gs.name, '.pdf', sep=''), width = 50, height = h)
+  if(column.clust){  ## is column.clust is TRUE, still draw a no column clust plot
+    htmp.res <- my.heatmap(dh, column.clust = F, row.clust = row.clust, 
+                           col.center.zero = F, row.label = 'as.is', column.label = NULL,
+                           col = color.gradient(low='white', high='red', n=100), X11 = F, 
+                           column.class = split(names(cell.class.vector), cell.class.vector),
+                           columnsep = T, sep.color = 'black', display.scale = display.scale, 
+                           cex = cex, ...)
+  }
   htmp.res <- my.heatmap(dh, column.clust = column.clust, row.clust = row.clust, 
                          col.center.zero = F, row.label = 'as.is', column.label = NULL,
                          col = color.gradient(low='white', high='red', n=100), X11 = F, 
@@ -376,6 +429,27 @@ check.single.gene <- function(d, norm.d, gene){
   cc <- sc.cor2(x, t(d))
   invisible(cc)
 }
+
+plot.tsne <- function(tsne.d, cls, fast=TRUE, ...){
+  ## tsne.file <- file.path(res_dir, sampleName, 'analysis/tsne/2_components/projection.csv')
+  ## tsne <- read.table(tsne.file, as.is=T, header=T, row.names = 1, sep=',')
+  ## plot(tsne[,1:2], pch='.')
+  ## smoothScatter(t[,1:2], pch='*')
+  
+  ## cls.file <- file.path(res_dir, sampleName, 'analysis/clustering/graphclust/clusters.csv')
+  ## cls <- read.table(cls.file, as.is=T, header=T, row.names = 1, sep=',')
+  plot(tsne.d[,1:2], pch='.', main=sampleName, ...)
+  cols <- rainbow(10)
+
+  for(i in 1:max(cls)){
+    if(fast){
+      points(tsne.d[names(cls)[cls == i], 1:2], col=cols[i], pch='*')
+    }else{
+      points(tsne.d[names(cls)[cls == i], 1:2], col=cols[i], pch=(i-1)%%10+1)  
+    }
+  }
+}
+
 
 sc.cor2 <- function(x, d, log=FALSE, base=2, ...){
   n <- sum(x != 0 & !is.na(x))
