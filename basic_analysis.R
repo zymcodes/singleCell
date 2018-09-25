@@ -36,7 +36,7 @@ hcl.10 <- cutree(hcl, 10)
 
 hc.res <- sc.hc(d=wd$raw.d, norm.d = wd$norm.d$d.norm, cell.class.vector = hcl.10,
                 sampleName = sampleName, gsea.b = F)
-
+save(hc.res, hcl.10, hcl, file=paste(sampleName, '_hclust.RData', sep=''))
 
 ## memory eating !!!
 tsne.10x.file <- file.path(dirname(dirname(fh)), 'analysis/tsne/2_components/projection.csv')
@@ -45,15 +45,16 @@ if(file.exists(tsne.10x.file)){
 }else{
   ## tsne.d <- tsne::tsne(d)
   d <- wd$norm.d$d.norm[apply(wd$norm.d$d.norm, 1, max, na.rm=T) >0,  ]
+  d[is.na(d)] <- 0  
   tsne.res <- Rtsne::Rtsne(t(d), check_duplicates=FALSE, pca=TRUE, dims=2)
-  rownames(tsne.d$Y) <- colnames(d)
-  tsne.d <- tsne.d$Y
+  rownames(tsne.res$Y) <- colnames(d)
+  tsne.d <- tsne.res$Y
 }
 pdf(file=paste(sampleName, "_tsne.pdf", sep=''))
 plot.tsne(tsne.d, hcl.10[rownames(tsne.d)], fast = FALSE)
 dev.off()
-
-save(hc.res, hcl.10, hcl, tsne.d, file=paste(sampleName, '_hclust.RData', sep=''))
+## add tsen.d to _hclust.RData
+save(hc.res, hcl.10, hcl, tsne.d, tsne.res, file=paste(sampleName, '_hclust.RData', sep=''))
 
 
 gs.res.l <- list()
