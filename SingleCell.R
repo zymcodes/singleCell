@@ -308,7 +308,6 @@ sc.normalize <- function(d, method=c('libsize', 'mean.n0', 'quantile999', 'TMM',
     d.norm <- DataNorm@metadata$NormalizedData
     nfs <- apply(d.norm, 2, sum)/apply(d, 2, sum)
   }
-    
   invisible(list(method=method, nfs=nfs, d.norm=d.norm))
 }
 
@@ -323,9 +322,9 @@ check.mito.gene.percentage <- function(d){
 
 ## source of cell cycle genes: https://www.cell.com/cell/fulltext/S0092-8674(15)00549-8  Figure 4.
 cell.cycle.genes <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", 
-                      "4175", "4176") 
+                      "4175", "4176", '4288') 
 names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2', 'MCM3', 
-                             'MCM4', 'MCM5', 'MCM6', 'MCM7')
+                             'MCM4', 'MCM5', 'MCM6', 'MCM7', 'MKI67')
 mito.genes <- get.mito.genes()
 
 check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.class.vector=NULL,
@@ -389,14 +388,14 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
   }
   pdf(file=paste(output.prefix, '_', gs.name, '.pdf', sep=''), width = 50, height = h)
   if(column.clust){  ## is column.clust is TRUE, still draw a no column clust plot
-    htmp.res <- my.heatmap(dh, column.clust = F, row.clust = row.clust, 
+    htmp.res <- my.heatmap(add.noise(dh, 0, 1e-10), column.clust = F, row.clust = row.clust, 
                            col.center.zero = F, row.label = 'as.is', column.label = NULL,
                            col = color.gradient(low='white', high='red', n=100), X11 = F, 
                            column.class = split(names(cell.class.vector), cell.class.vector),
                            columnsep = T, sep.color = 'black', display.scale = display.scale, 
                            cex = cex, ...)
   }
-  htmp.res <- my.heatmap(dh, column.clust = column.clust, row.clust = row.clust, 
+  htmp.res <- my.heatmap(add.noise(dh, 0, 1e-10), column.clust = column.clust, row.clust = row.clust, 
                          col.center.zero = F, row.label = 'as.is', column.label = NULL,
                          col = color.gradient(low='white', high='red', n=100), X11 = F, 
                          column.class = split(names(cell.class.vector), cell.class.vector),
@@ -782,7 +781,6 @@ compile.geneset.of.interest <- function(){
   load('~/data/geneAnnotation/human/gencode.v27.annotation.RData')
   trav.ind <- grep('^TRAV', gencode$gene.gr$gene_name)
   t1 <- gencode$gene.gr$gene_name[trav.ind]
-  print(1)
   t2 <- get.gene.info(t1)
   tt <- t2[, c('Symbol', 'GeneID')]
   tt <- unique.matrix(tt)
@@ -793,16 +791,14 @@ compile.geneset.of.interest <- function(){
   load(file='~/data/pathways/MSigDB/MSigDB_2018.RData')
   apoptosis.genes <- get.my.geneset.format(Reduce(intersect,msigdb.gs.l[apoptosis.gs.names[c(1:3)]]))
   
-  ## Human endometrial stromal cells: CD146，IGFBP-1, PRL, TF, PAI-1，CD45
+  ## Human endometrial stromal cells: CD146，IGFBP-1, PRL, TF, PAI-1，CD45/PTPRC
   t <- c('CD146', 'IGFBP1', 'PRL', 'PAI-1', 'CD45') ## 'TF' not sure which genes
-  print(2)
   tt <- get.gene.info(t)
   stromal.genes <- tt[, 'Symbol']
   names(stromal.genes) <- tt[, 'GeneID']
   
   ## Human endometrial epithelial cells:EpCAM
   t <- 'EPCAM'
-  print(3)
   tt <- get.gene.info(t)
   epithelial.genes <- tt[, 'Symbol']
   names(epithelial.genes) <- tt[, 'GeneID']
@@ -822,6 +818,7 @@ compile.geneset.of.interest <- function(){
                  trav=names(trav.genes), tfs = names(tfs))
   
   ## immune core
+  ## CD276 = B7H3, VTCN1 = B7H4
   immune.core <- c('CD4', 'CD8A', 'CD8B', 'CD3G', 'CD3E', 'CD3D', 'CD19', 'PTPRC', 'MS4A1', 'FOXP3', 'IFNG', 
                    'PRF1', 'GZMA', 'GZMK', 'CTLA4', 'IDO1', 'LAG3', 'TIM3', 'PDCD1', 'CD274', 'CD276', 
                    'VTCN1', 'CCR7', 'HLA-A', 'HLA-B', 'HLA-C', 'HLA-DRB1', 'HLA-DPB1', 'HLA-DQB1', 
