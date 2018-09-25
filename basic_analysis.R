@@ -27,9 +27,13 @@ print(dim(wd$norm.d$d.norm))
 cell.sizes <- apply(wd$raw.d, 2, sum)
 silent.genes <- rownames(wd$raw.d)[apply(wd$raw.d, 1, sum) == 0]
 save(wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
+## the following step take loooooong time!!!
+wd[['pa.d']] <- get.present.m(wd$raw.d)
+save(wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
 
 ## memory eating !!!
 pdf(file=paste(sampleName, '_hclust.pdf', sep=''), width=14)
+## the following step take loooooong time!!!
 hcl <- sc.hclust(wd$raw.d, noPlot=FALSE, noX = TRUE, leaflab = "none")
 dev.off()
 hcl.10 <- cutree(hcl, 10)
