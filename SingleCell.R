@@ -759,8 +759,10 @@ sc.preprocess <- function(d, min.expr.genes = 1000){
   mito.median <- median(mito$percent.mito)
   mito.mad <- mad(mito$percent.mito)
   mito.cut <- (mito.median + 2* mito.mad)
-  
-  rd <- d.entrez[, names(mito$percent.mito)[mito$percent.mito < mito.cut]]
+
+  if(mito.cut != 0){
+      rd <- d.entrez[, names(mito$percent.mito)[mito$percent.mito < mito.cut]]      
+  }
   rd <- rd[, apply(rd > 0, 2, sum) > min.expr.genes]
   norm.d <- sc.normalize(rd, method = 'mean.n0')
   

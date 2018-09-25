@@ -15,7 +15,11 @@ load('~/data/geneAnnotation/human/ncbi.gene.info.RData')
 if(file.info(fh)$isdir){  ## if fh is a directory, take the input as 10x genomics output, by default
   rd <- read.10x.mtx(data.dir, min.genes=1000)    
 }else{                    ## if fh is a file, take the input as the .xls(matrix) file downloaded from GEO
-  rd <- read.table(file = fh, as.is=T, header=T, row.names = 1)
+    if(grepl('RData', fh, ignore.case=T)){
+        load(fh)
+    }else{    
+        rd <- read.table(file = fh, as.is=T, header=T, row.names = 1)
+    }
 }
 print(dim(rd))
 wd <- sc.preprocess(rd)
