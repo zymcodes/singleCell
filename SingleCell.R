@@ -760,7 +760,7 @@ sc.preprocess <- function(d, min.expr.genes = 1000){
   mito.mad <- mad(mito$percent.mito)
   mito.cut <- (mito.median + 2* mito.mad)
 
-  if(mito.cut != 0){
+  if(is.null(mito.median) | mito.cut != 0){
       rd <- d.entrez[, names(mito$percent.mito)[mito$percent.mito < mito.cut]]      
   }
   rd <- rd[, apply(rd > 0, 2, sum) > min.expr.genes]
