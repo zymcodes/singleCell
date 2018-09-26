@@ -248,9 +248,10 @@ get.present.m <- function(umi.d){
   res.m <- umi.d - umi.d
   cell.sizes <- apply(umi.d, 2, sum)
   d <- umi.d[apply(umi.d, 1, max) > 0, ]
-  pm <- apply(d, 1, check.single.gene.01, cell.sizes = cell.sizes, simple.res=FALSE)
+  pm <- apply(d, 1, check.single.gene.01, cell.sizes = cell.sizes, simple.res=TRUE)
   pm <- t(pm)
   res.m[rownames(pm), colnames(pm)] <- pm
+  res.m <- as.matrix(res.m)
   invisible(res.m)
 }
 
