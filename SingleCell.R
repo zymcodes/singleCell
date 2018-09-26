@@ -319,7 +319,7 @@ check.mito.gene.percentage <- function(d){
   if(length(co.gs) == 0){
     percent.mito <- NULL
   }else{
-    percent.mito <- apply(d[co.gs, ], 2, sum)/apply(d, 2, sum)    
+    percent.mito <- apply(d[co.gs, ,drop=F], 2, sum)/apply(d, 2, sum)    
   }
 
   invisible(list(mito.genes = co.gs, percent.mito=percent.mito))
