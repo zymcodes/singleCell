@@ -781,9 +781,11 @@ test.classes.libsize <- function(raw.d, class.v){
 ## define gene sets of interest
 compile.geneset.of.interest <- function(){
   load('~/data/geneAnnotation/human/gencode.v27.annotation.RData')
+  load('~/data/geneAnnotation/human/ncbi.gene.info.RData')
+  
   trav.ind <- grep('^TRAV', gencode$gene.gr$gene_name)
   t1 <- gencode$gene.gr$gene_name[trav.ind]
-  t2 <- get.gene.info(t1)
+  t2 <- get.gene.info(t1, gene.info = gene.info)
   tt <- t2[, c('Symbol', 'GeneID')]
   tt <- unique.matrix(tt)
   trav.genes <- tt[, 'Symbol']
@@ -795,13 +797,13 @@ compile.geneset.of.interest <- function(){
   
   ## Human endometrial stromal cells: CD146，IGFBP-1, PRL, TF, PAI-1，CD45/PTPRC
   t <- c('CD146', 'IGFBP1', 'PRL', 'PAI-1', 'CD45') ## 'TF' not sure which genes
-  tt <- get.gene.info(t)
+  tt <- get.gene.info(t, gene.info = gene.info)
   stromal.genes <- tt[, 'Symbol']
   names(stromal.genes) <- tt[, 'GeneID']
   
   ## Human endometrial epithelial cells:EpCAM
   t <- 'EPCAM'
-  tt <- get.gene.info(t)
+  tt <- get.gene.info(t, gene.info = gene.info)
   epithelial.genes <- tt[, 'Symbol']
   names(epithelial.genes) <- tt[, 'GeneID']
   
@@ -815,6 +817,7 @@ compile.geneset.of.interest <- function(){
   ## TFs
   load('~/data/geneAnnotation/human/TFs/human_tfs.RData')
   tfs <- tfs.info[, "Symbol"]
+  tfs.info <- unique.matrix(tfs.info[, c('Symbol', 'GeneID')])
   names(tfs) <- tfs.info[, "GeneID"]
   gsoi.l <- list(immune=names(immune.genes), epithelial=names(epithelial.genes), stromal=names(stromal.genes), 
                  trav=names(trav.genes), tfs = names(tfs))
@@ -830,20 +833,20 @@ compile.geneset.of.interest <- function(){
   ## traficking to Tumor
   traffick2Tumor <- c('CX3CL1', 'CXCL9', 'CXCL10', 'CCL5', 'ICAM1', 'ITGB2', 'ITGAL', 'SELE', 'SELP', 'SELL')
   print(4)
-  t2 <- get.gene.info(traffick2Tumor)
+  t2 <- get.gene.info(traffick2Tumor, gene.info = gene.info)
   t2 <- t2[t2[,1] != 'SELENOP', ]
-  gsoi.l[['traffickToTumor']] <- get.my.geneset.format(t2[,3])
+  gsoi.l[['traffickToTumor']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
   
   ## ICs
   t1 <- c('PDCD1', 'CD274', 'CD276',  'VTCN1', 'BTLA', 'VSIR', 'TNFRSF4',   ## TNFRSF4 == OX40
           'IDO1', 'IDO2', 'CTLA4', 'LAG3', 'TIM3', 'TGFB1', 'TGFB2', 'TGFB3')  ## 
-  t2 <- get.gene.info(t1)
-  gsoi.l[['immuCheck']] <- get.my.geneset.format(t2[,3])
+  t2 <- get.gene.info(t1, gene.info = gene.info)
+  gsoi.l[['immuCheck']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
   
   ## Infiltration of T cells into tumors
   t1 <- c('ICAM1', 'SELE', 'SELP', 'SELL', 'ITGB2', 'ITGAL')  ## LFA-1 == ITGB2 or ITGAL
-  t2 <- get.gene.info(t1)
-  gsoi.l[['til']] <- get.my.geneset.format(t2[,3])
+  t2 <- get.gene.info(t1, gene.info = gene.info)
+  gsoi.l[['til']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
   
   ## Immune, stroma and epithelia
   t1 <- c('CD247', 'CD3G', 'CD3E', 'CD3D', ## CD3 family, cD247 = CD3-ZETA/CD3H/CD3Q/CD3Z 
@@ -855,14 +858,15 @@ compile.geneset.of.interest <- function(){
          'ITGAX', 'IL3RA',  ## ITGAX == CD11c; CD123==IL3RA. DC cell
          'NCAM1',   ## CD56 == NCAM1. NK cell
           'CD14', 'CD33', ## Macrophage/Monocyte
+         'PTPRC', ## PTPRC == CD45, lyphocyte
          'CEACAM8',   ## CD66b == CEACAM8. Granulocyte
          'ITGA2B', 'ITGB3', 'SELP',   ## CD41==ITGA2B, CD61== ITGB3, CD62 = SELP. Platelet
          'GYPA',   ## CD235a == GYPA. Erythrocyte
-         'MCAM',  ## MCAM == CD146. Endothelial Cell
+         'MCAM',  'PECAM1', ## MCAM == CD146. Endothelial Cell
          'EPCAM'  ## CD326 == EPCAM. Epithelial Cell
          )
-  t2 <- get.gene.info(t1)
-  gsoi.l[['immune.cell.marker']] <- get.my.geneset.format(t2[,3])
+  t2 <- get.gene.info(t1, gene.info = gene.info)
+  gsoi.l[['immune.cell.marker']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
   
   ## cell cycle
   ## source of cell cycle genes: https://www.cell.com/cell/fulltext/S0092-8674(15)00549-8  Figure 4.
@@ -887,7 +891,7 @@ compile.geneset.of.interest <- function(){
   
   for(gs.name in names(gsoi.l)){
     print(gs.name)
-    gsoi.l[[gs.name]] <- get.my.geneset.format(gsoi.l[[gs.name]])
+    gsoi.l[[gs.name]] <- get.my.geneset.format(gsoi.l[[gs.name]], gene.info = gene.info)
   }
   save(gsoi.l, file='~/data/geneAnnotation/human/gsoi.l.for.singleCellAnalysis.RData')
   invisible(gsoi.l)

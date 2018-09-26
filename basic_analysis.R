@@ -73,18 +73,20 @@ for(gs.name in names(gsoi.l)){
   t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=gs,
                      gs.name = gs.name, cell.class.vector = hcl.10,
                      output.prefix = paste(sampleName, 'gsoi', sep='-'),
-                     row.clust = T, display.scale = 'none')
+                     row.clust = T,  column.clust = T, display.scale = 'none')
   
   gs.res.l[[gs.name]] <- t
 }
 
-for(gs.name in names(affy.gs)){
-  t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=affy.gs[[gs.name]],
+if(0){
+  for(gs.name in names(affy.gs)){
+    t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=affy.gs[[gs.name]],
                      gs.name = gs.name, cell.class.vector = hcl.10,
                      output.prefix = paste(sampleName, 'affy', sep='-'),
                      row.clust = T, display.scale = 'none')
   
-  gs.res.l[[gs.name]] <- t
+    gs.res.l[[gs.name]] <- t
+  }
 }
 
 save(gs.res.l, file=paste(sampleName, '_geneset.res.RData', sep=''))
