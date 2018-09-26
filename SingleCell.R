@@ -316,7 +316,12 @@ check.mito.gene.percentage <- function(d){
   mito.geneids <- mito.gi[, "GeneID"]
   ## mito.geneids <- mito.gi[, "Symbol"]
   co.gs <- intersect(rownames(d), mito.geneids)
-  percent.mito <- apply(d[co.gs, ], 2, sum)/apply(d, 2, sum)
+  if(length(co.gs) == 0){
+    percent.mito <- NULL
+  }else{
+    percent.mito <- apply(d[co.gs, ], 2, sum)/apply(d, 2, sum)    
+  }
+
   invisible(list(mito.genes = co.gs, percent.mito=percent.mito))
 }
 
@@ -760,7 +765,7 @@ sc.preprocess <- function(d, min.expr.genes = 1000){
   mito.mad <- mad(mito$percent.mito)
   mito.cut <- (mito.median + 2* mito.mad)
 
-  if(is.null(mito.median) | mito.cut != 0){
+  if(!is.null(mito$percent.mito) & mito.cut != 0){
       rd <- d.entrez[, names(mito$percent.mito)[mito$percent.mito < mito.cut]]      
   }
   rd <- rd[, apply(rd > 0, 2, sum) > min.expr.genes]
