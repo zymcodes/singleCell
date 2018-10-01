@@ -768,6 +768,8 @@ sc.preprocess <- function(d, min.expr.genes = 1000){
 
   if(!is.null(mito$percent.mito) & mito.cut != 0){
       rd <- d.entrez[, names(mito$percent.mito)[mito$percent.mito < mito.cut]]      
+  }else{
+      rd <- d.entrez
   }
   rd <- rd[, apply(rd > 0, 2, sum) > min.expr.genes]
   norm.d <- sc.normalize(rd, method = 'mean.n0')
