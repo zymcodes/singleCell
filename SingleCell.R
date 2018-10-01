@@ -853,7 +853,10 @@ compile.geneset.of.interest <- function(){
   t1 <- c('ICAM1', 'SELE', 'SELP', 'SELL', 'ITGB2', 'ITGAL')  ## LFA-1 == ITGB2 or ITGAL
   t2 <- get.gene.info(t1, gene.info = gene.info)
   gsoi.l[['til']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
-  
+
+  ## pericyte: RGS5
+  gsoi.l[['pericyte']] <- c('8490')
+
   ## Immune, stroma and epithelia
   t1 <- c('CD247', 'CD3G', 'CD3E', 'CD3D', ## CD3 family, cD247 = CD3-ZETA/CD3H/CD3Q/CD3Z 
          'FOXP3', ## Treg
@@ -864,6 +867,7 @@ compile.geneset.of.interest <- function(){
          'ITGAX', 'IL3RA',  ## ITGAX == CD11c; CD123==IL3RA. DC cell
          'NCAM1',   ## CD56 == NCAM1. NK cell
           'CD14', 'CD33', ## Macrophage/Monocyte
+         'CD68', 'CD163', ## Macrophage
          'PTPRC', ## PTPRC == CD45, lyphocyte
          'CEACAM8',   ## CD66b == CEACAM8. Granulocyte
          'ITGA2B', 'ITGB3', 'SELP',   ## CD41==ITGA2B, CD61== ITGB3, CD62 = SELP. Platelet
@@ -876,9 +880,12 @@ compile.geneset.of.interest <- function(){
   
   ## cell cycle
   ## source of cell cycle genes: https://www.cell.com/cell/fulltext/S0092-8674(15)00549-8  Figure 4.
-  ## cell.cycle.genes <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", "4176")
-  ## names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2', 'MCM3', 'MCM4', 'MCM5', 'MCM6', 'MCM7')
-  gsoi.l[['cell.cycle']] <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", "4176")
+  ## cell.cycle.genes <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", "4176",
+  ##                        '332', '890', '5111', '1033', '983', '991', '4288')
+  ## names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2', 'MCM3', 'MCM4', 'MCM5', 
+  ##                                'MCM6', 'MCM7', 'BIRC5', 'CCNA2', 'PCNA'，‘CDKN3’, 'CDK1', 'CDC20', 'MKI67)
+  gsoi.l[['cell.cycle']] <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", 
+                              "4176", '332', '890', '5111', '1033', '983', '991', '4288')
   
   ## TCR
   ## tcr.genes <- c('6955', '6957', '6964', '6965', '28755')
@@ -895,6 +902,13 @@ compile.geneset.of.interest <- function(){
   ## names(dna.repair.genes) <- c('POLD1', 'POLE', 'TP53', 'TTN', 'ARID1A', 'MUC16' )
   gsoi.l[['dna.repair']] <- c("5424", "5426", "7157", "7273", "8289", "94025")
   
+  ## lymphatic endothelial cells markers: PDPN and PROX1
+  gsoi.l[['lymph.endothelium']] <- c('10630', '5629')
+  
+  ## http://www.nature.com.ezp-prod1.hul.harvard.edu/articles/s41556-018-0105-4
+  gsoi.l[['basal.cell']] <- c('3853', '3854') ## KRT6A and KRT6B
+  gsoi.l[['secretory.cell']] <- c('4582', '3854') ## MUC1 and MUC16
+
   for(gs.name in names(gsoi.l)){
     print(gs.name)
     gsoi.l[[gs.name]] <- get.my.geneset.format(gsoi.l[[gs.name]], gene.info = gene.info)
