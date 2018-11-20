@@ -22,14 +22,28 @@ if(file.info(fh)$isdir){  ## if fh is a directory, take the input as 10x genomic
     }
 }
 print(dim(rd))
-wd <- sc.preprocess(rd)
+
+t <- rd[rd > 0][1:10]
+xv <- sum(t != ceiling(t))
+if(xv > 0){
+  print('Not count data.')
+  wd <- sc.preprocess(rd, min.expr.genes = 1000, normalize.method = NULL)
+}else{
+  print('Count data.')
+  wd <- sc.preprocess(rd, min.expr.genes = 1000, normalize.method = 'libsize')
+}
+
 print(dim(wd$norm.d$d.norm))
 cell.sizes <- apply(wd$raw.d, 2, sum)
 silent.genes <- rownames(wd$raw.d)[apply(wd$raw.d, 1, sum) == 0]
-save(wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
+save(sampleName, rd, wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
 ## the following step take loooooong time!!!
-wd[['pa.d']] <- get.present.m(wd$raw.d)
-save(wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
+if(xv == 0){
+  if(0){  ## too slow. Skip it currently
+    wd[['pa.d']] <- get.present.m(wd$raw.d)
+    save(sampleName, rd, wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
+  }
+}
 
 ## memory eating !!!
 pdf(file=paste(sampleName, '_hclust.pdf', sep=''), width=14)
@@ -50,12 +64,29 @@ if(file.exists(tsne.10x.file)){
   ## tsne.d <- tsne::tsne(d)
   d <- wd$norm.d$d.norm[apply(wd$norm.d$d.norm, 1, max, na.rm=T) >0,  ]
   d[is.na(d)] <- 0
-  tsne.res <- Rtsne::Rtsne(t(d), check_duplicates=FALSE, pca=TRUE, dims=2)
-  rownames(tsne.res$Y) <- colnames(d)
-  tsne.d <- tsne.res$Y
+  library(Rtsne)
+  tsne.res <- try(Rtsne(t(d), check_duplicates=FALSE, pca=TRUE, dims=2), FALSE)
+  if(length(tsne.res) == 1){
+    pca.res <- prcomp(t(d), scale=T, center=T)
+    tsne.d <- pca.res$x[, 1:2]
+    rownames(tsne.d) <- colnames(d)
+    pca.b <- TRUE
+  }else{
+    rownames(tsne.res$Y) <- colnames(d)
+    tsne.d <- tsne.res$Y
+    pca.b <- FALSE
+  }
 }
-pdf(file=paste(sampleName, "_tsne.pdf", sep=''))
-plot.tsne(tsne.d, hcl.10[rownames(tsne.d)], fast = FALSE)
+if(pca.b){
+  pdf(file=paste(sampleName, "_PCA.pdf", sep=''))  
+}else{
+  pdf(file=paste(sampleName, "_tsne.pdf", sep=''))
+}
+
+for(k in 2:10){
+  cls <- cutree(hcl, k)
+  plot.tsne(tsne.d, cls[rownames(tsne.d)], fast = FALSE, main=paste(sampleName, k))  
+}
 dev.off()
 ## add tsen.d to _hclust.RData
 save(hc.res, hcl.10, hcl, tsne.d, tsne.res, file=paste(sampleName, '_hclust.RData', sep=''))
@@ -78,6 +109,8 @@ for(gs.name in names(gsoi.l)){
   gs.res.l[[gs.name]] <- t
 }
 
+save(gs.res.l, file=paste(sampleName, '_geneset.res.RData', sep=''))
+
 if(0){
   for(gs.name in names(affy.gs)){
     t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=affy.gs[[gs.name]],
@@ -88,5 +121,3 @@ if(0){
     gs.res.l[[gs.name]] <- t
   }
 }
-
-save(gs.res.l, file=paste(sampleName, '_geneset.res.RData', sep=''))

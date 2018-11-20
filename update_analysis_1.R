@@ -19,7 +19,6 @@ load(processed.data.file)
 load(hclust.data.file)
 
 sampleName <- strsplit(processed.data.file, '_')[[1]][1]
-sampleName <- paste(sampleName, i, sep='-')
 gs.res.l <- list()
 load('~/data/geneAnnotation/human/gsoi.l.for.singleCellAnalysis.RData')
 for(gs.name in names(gsoi.l)){
@@ -32,15 +31,6 @@ for(gs.name in names(gsoi.l)){
   t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=gs,
                      gs.name = gs.name, cell.class.vector = hcl.10,
                      output.prefix = paste(sampleName, 'gsoi', sep='-'),
-                     row.clust = T, display.scale = 'none')
-  
-  gs.res.l[[gs.name]] <- t
-}
-
-for(gs.name in names(affy.gs)){
-  t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=affy.gs[[gs.name]],
-                     gs.name = gs.name, cell.class.vector = hcl.10,
-                     output.prefix = paste(sampleName, 'affy', sep='-'),
                      row.clust = T, display.scale = 'none')
   
   gs.res.l[[gs.name]] <- t
