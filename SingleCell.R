@@ -347,7 +347,7 @@ names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2'
 mito.genes <- get.mito.genes()
 
 check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.class.vector=NULL,
-                          output.prefix, row.clust = F, column.clust = F, display.scale='row', 
+                          output.prefix, row.clust = F, column.clust = F, display.scale='none', 
                           h = NULL, cex=1, ...){
   cat("gs is genenames, names(gs) is geneID(entrezID)!\n")
   n0 <- length(gs)
@@ -366,9 +366,9 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
     return()
   }
   
-  gene.cc <- sc.cor(t(norm.d[gs,]), log=TRUE) 
+  gene.cc <- sc.cor(t(norm.d[gs,]), log=FALSE) 
   cell.cc <- NULL
-  cell.cc <- sc.cor(d[gs,], log=TRUE)
+  cell.cc <- sc.cor(d[gs,], log=FALSE)
   
   if(!is.null(cell.class.vector)){
     cell.class.vector <- sort(cell.class.vector)
@@ -428,7 +428,7 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
   }
   dev.off()
 
-  invisible(list(geneset=gs, gene.cc=gene.cc, cell.cc=cell.cc, heatmap.res=htmp.res, plot.height=h))
+  invisible(list(geneset=gs, gene.cc=gene.cc, cell.cc=cell.cc, heatmap.res=htmp.res))
 }  
 
 check.single.gene <- function(d, norm.d, gene){
@@ -956,8 +956,8 @@ compile.geneset.of.interest <- function(){
   load(file='~/data/pathways/MSigDB/MSigDB_2018.RData')
   apoptosis.genes <- get.my.geneset.format(Reduce(intersect,msigdb.gs.l[apoptosis.gs.names[c(1:3)]]))
   
-  ## Human endometrial stromal cells: CD146，IGFBP-1, PRL, TF, PAI-1，CD45/PTPRC
-  t <- c('CD146', 'IGFBP1', 'PRL', 'PAI-1', 'CD45') ## 'TF' not sure which genes
+  ## Human endometrial stromal cells: CD146???IGFBP-1, PRL, TF, PAI-1???CD45/PTPRC
+  t <- c('CD146', 'IGFBP1', 'PRL', 'PAI-1', 'CD45', 'ANPEP') ## 'TF' not sure which genes
   tt <- get.gene.info(t, gene.info = gene.info)
   stromal.genes <- tt[, 'Symbol']
   names(stromal.genes) <- tt[, 'GeneID']
@@ -1029,7 +1029,7 @@ compile.geneset.of.interest <- function(){
          'GYPA',   ## CD235a == GYPA. Erythrocyte
          'MCAM',  'PECAM1',  ## MCAM == CD146. Endothelial Cell
          'RGS5', ## pericyte
-         'EPCAM'  ## CD326 == EPCAM. Epithelial Cell
+         'EPCAM',  ## CD326 == EPCAM. Epithelial Cell
          )
   t2 <- get.gene.info(t1, gene.info = gene.info)
   gsoi.l[['immune.cell.marker']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
@@ -1038,7 +1038,7 @@ compile.geneset.of.interest <- function(){
   ## source of cell cycle genes: https://www.cell.com/cell/fulltext/S0092-8674(15)00549-8  Figure 4.
   ## MKI67 == Ki67; CDKN1A==p21
   ## names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2', 'MCM3', 'MCM4', 'MCM5', 
-  ##                        'MCM6', 'MCM7', 'BIRC5', 'CCNA2', 'PCNA'，‘CDKN3’, 'CDK1', 'CDC20', 'MKI67', 'CDKN1A')
+  ##                        'MCM6', 'MCM7', 'BIRC5', 'CCNA2', 'PCNA'??????CDKN3???, 'CDK1', 'CDC20', 'MKI67', 'CDKN1A')
   gsoi.l[['cell.cycle']] <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", 
                               "4176", '332', '890', '5111', '1033', '983', '991', '4288', '1026')
   
@@ -1061,7 +1061,7 @@ compile.geneset.of.interest <- function(){
   gsoi.l[['lymph.endothelium']] <- c('10630', '5629')
   
   ## CD11c+ microglia differed significantly from blood-derived CD11c+ cells in their cytokine profile, 
-  ## expressing no detectable IL-6, IL-12 or IL-23, and low levels of IL-1β. By contrast, CD11c− microglia 
+  ## expressing no detectable IL-6, IL-12 or IL-23, and low levels of IL-1??. By contrast, CD11c??? microglia 
   ## expressed low but detectable levels of all these cytokines. 
   gsoi.l[['DC']] <- c('3687', '3123', '3119', '3115', ## ITGAX, HLA-DRB1, HLA-DQB1, HLA-DPB1
                       '7056', '911', '3563', '170482', ## CD141/THBD/BDCA3; CD1C/BDCA1; CD123/IL3RA, CD303/CLEC4C
@@ -1079,7 +1079,11 @@ compile.geneset.of.interest <- function(){
                                '8490', '1464', ## RGS5,  CSPG4, pericyte; 
                                '4072',  ## CD326 == EPCAM. Epithelial Cell
                                '947',   ## CD34 stem cell
-                               '5054', '2191', '79812' ## FAP, Endoglyx-1 = MMRN2, PAI-1=SERPINE1, stromal cells
+                               '5054', '2191', '79812', ## FAP, Endoglyx-1 = MMRN2, PAI-1=SERPINE1, stromal cells
+                               '3855', ## cytokeratin (KRT7: 3855)
+                               '2302', ## Ciliated cells: FOXJ1: 2302
+                               '5175', '7450', ## Endothelium: PECAM1: 5175 (CD31), VWF: 7450
+                               '7431', '999', '3855', '290' ## Stroma (pluripotent mesenchymal cells, fibroblast, histiocyte): Vimentin (VIM: 7431) +; E cadherin (CDH1:999) -; Cytokeratin (KRT7: 3855) ; EpCAM (EPCAM:??4072);'ANPEP' 
                                 )
   gsoi.l[['brainCellMarkers']] <- c('2026', '2023', '1742', '4900', '4133',## ENO2=NSE(Neuron specific enolase), PSD95=DLG4, NRGN, MAP2, Neuron. [ENO1=NNE(non-neural enolase)]  
                                     '3684', ## CD11b == ITGAM, microglia
@@ -1092,13 +1096,21 @@ compile.geneset.of.interest <- function(){
 
   ## Fibroblast marker VIM/vimentin
   gsoi.l[['fibroblast']] <- c('7431')
-  ## CAF: ACTA1, ACTA2, S100A4, CD29=ITGB1, PDGFRβ, CAV1
+  ## CAF: ACTA1, ACTA2, S100A4, CD29=ITGB1, PDGFR??, CAV1
   gsoi.l[['CAF']] <- c('59','59', '6275', '3688', '5159', '857')
   
+  ## decidulization (PRL: 5617???IGFBP1: 3484)
+  gsoi.l[['decidulization']] <- c('5617', '3484') 
   
+  ## women: E2 receptor (ESR1: 2099; ESR2: 2100); P receptor (PGR: 5241); EGF receptor (EGFR:1956) 
+  gsoi.l[['women']] <- c('2099', '2100', '5241', '1956')
   
   for(gs.name in names(gsoi.l)){
     print(gs.name)
+    if(length(gsoi.l[[gs.name]]) == 0){
+      print("no genes!!!")
+      next()
+    }
     gsoi.l[[gs.name]] <- get.my.geneset.format(gsoi.l[[gs.name]], gene.info = gene.info)
   }
   save(gsoi.l, file='~/data/geneAnnotation/human/gsoi.l.for.singleCellAnalysis.RData')
@@ -1107,7 +1119,7 @@ compile.geneset.of.interest <- function(){
 
 
 ## count.data.deg should be output of sc.deg
-batch.gsea.count.data <- function(count.data.deg){
+batch.gsea.count.data <- function(count.data.deg, value.column='pvalue'){
   if(!exists('hs.gi')){
     load('~/data/geneAnnotation/human/hs.gi.RData')    
   }
@@ -1115,10 +1127,10 @@ batch.gsea.count.data <- function(count.data.deg){
   cd.deg <- count.data.deg
   b <- (cd.deg[, "group1.gc"] > cd.deg[, "group1.size"]/10 |
           cd.deg[, 'group2.gc'] > cd.deg[, "group2.size"]/10)
-  gsea.kegg <- batch.gsea(sort(cd.deg[b, 'pvalue']), genesets = hs.gi$kegg)
+  gsea.kegg <- batch.gsea(sort(cd.deg[b, value.column]), genesets = hs.gi$kegg)
   gsea.kegg <- data.frame(gsea.kegg, hs.gi$kegg.info[rownames(gsea.kegg), ])
   
-  gsea.go <- batch.gsea(sort(cd.deg[, "pvalue"]), genesets = hs.gi$go)
+  gsea.go <- batch.gsea(sort(cd.deg[, value.column]), genesets = hs.gi$go)
   gsea.go <- data.frame(gsea.go, hs.gi$go.info[rownames(gsea.go), ])
   
   invisible(list(kegg=gsea.kegg, go.bp=gsea.go[gsea.go[, "ontology"]=='BP', ], 

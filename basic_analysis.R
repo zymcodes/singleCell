@@ -11,15 +11,15 @@ cat('Rscript this.R ', fh, sampleName, "\n")
 source('~/codes/git/SingleCell/SingleCell.R')
 source('~/codes/affymetrix/affy_survival_procedure.R')
 load('~/data/geneAnnotation/human/ncbi.gene.info.RData')
-  
+
 if(file.info(fh)$isdir){  ## if fh is a directory, take the input as 10x genomics output, by default
   rd <- read.10x.mtx(fh, min.genes=1000)    
 }else{                    ## if fh is a file, take the input as the .xls(matrix) file downloaded from GEO
-    if(grepl('RData', fh, ignore.case=T)){
-        load(fh)
-    }else{    
-        rd <- read.table(file = fh, as.is=T, header=T, row.names = 1)
-    }
+  if(grepl('RData', fh, ignore.case=T)){
+    load(fh)
+  }else{    
+    rd <- read.table(file = fh, as.is=T, header=T, row.names = 1)
+  }
 }
 print(dim(rd))
 
@@ -36,7 +36,7 @@ if(xv > 0){
 print(dim(wd$norm.d$d.norm))
 cell.sizes <- apply(wd$raw.d, 2, sum)
 silent.genes <- rownames(wd$raw.d)[apply(wd$raw.d, 1, sum) == 0]
-save(sampleName, rd, wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
+save(sampleName, fh, rd, wd, cell.sizes, silent.genes, file=paste(sampleName, '_processed.RData', sep=''))
 ## the following step take loooooong time!!!
 if(xv == 0){
   if(0){  ## too slow. Skip it currently
