@@ -28,10 +28,15 @@ for(gs.name in names(gsoi.l)){
     t1 <- apply(wd$norm.d$d.norm[gs, ], 1, max, na.rm=T)
     gs <- gs[is.element(gs, names(sort(t1, decreasing = T))[1:200])]
   }
+  ## t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=gs,
+  ##                   gs.name = gs.name, cell.class.vector = hcl.10,
+  ##                   output.prefix = paste(sampleName, 'gsoi', sep='-'),
+  ##                   row.clust = T, display.scale = 'none')
+  
   t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=gs,
                      gs.name = gs.name, cell.class.vector = hcl.10,
                      output.prefix = paste(sampleName, 'gsoi', sep='-'),
-                     row.clust = T, display.scale = 'none')
+                     row.clust = T,  column.clust = T, display.scale = 'none')
   
   gs.res.l[[gs.name]] <- t
 }

@@ -347,8 +347,9 @@ names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2'
 mito.genes <- get.mito.genes()
 
 check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.class.vector=NULL,
-                          output.prefix, row.clust = F, column.clust = F, display.scale='none', 
-                          h = NULL, cex=1, ...){
+                          output.prefix=NULL, row.clust = F, column.clust = F, display.scale='none', 
+                          h = NULL, cex=1, main=NULL, x11.bulk=TRUE, ...){
+  
   cat("gs is genenames, names(gs) is geneID(entrezID)!\n")
   n0 <- length(gs)
   gs <- gs[is.element(gs, rownames(norm.d))]
@@ -356,6 +357,9 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
   
   gs.id2name <- names(gs)
   names(gs.id2name) <- gs
+  
+  d <- d[gs, ]
+  norm.d <- norm.d[gs, ]
   
   if(max(norm.d, na.rm = T) > 30){
     norm.d <- log201(norm.d)
@@ -368,8 +372,10 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
   
   gene.cc <- sc.cor(t(norm.d[gs,]), log=FALSE) 
   cell.cc <- NULL
-  cell.cc <- sc.cor(d[gs,], log=FALSE)
-  
+  if(column.clust){
+    cell.cc <- sc.cor(d[gs,], log=FALSE)    
+  }
+
   if(!is.null(cell.class.vector)){
     cell.class.vector <- sort(cell.class.vector)
     d <- d[, names(cell.class.vector)]
@@ -382,8 +388,8 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
   if(plot.each.gene){
     for(g in gs){
       ##my.plot.density(d[g,])
-      barplot(table(norm.d[g, norm.d[g, ] > 0]), main=gs.id2name[g], log='y')
-      my.plot.density(log2(norm.d[g, ]+1), main=gs.id2name[g])
+      barplot(table(norm.d[g, norm.d[g, ] > 0]), main=paste(main,gs.id2name[g], sep='::'), log='y')
+      my.plot.density(log2(norm.d[g, ]+1), main=paste(main, gs.id2name[g], sep='::'))
     }
   }
   
@@ -402,34 +408,61 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
     h <- 7 * (1 + nrow(dh)/100)    
   }
   
-  if(nrow(dh) < 50){
+  if(nrow(dh) < 50 & cex == 1){
     cex <- 2 * (1 + (50 - nrow(dh))/50)
   }
   
-  pdf(file=paste(output.prefix, '_', gs.name, '.pdf', sep=''), width = 50, height = h)
+  main <- paste(main, gs.name, sep='::')
+  
+  d.aggr <- aggregate.II(add.noise(dh), v=cell.class.vector, f = 'mean', byrow = F)
+  
+  if(x11.bulk){ ## plot in X11, and will be plot again in PDF.
+    my.heatmap(d.aggr, column.clust = T, row.clust = T, col.center.zero = F, row.label = 'as.is', 
+               column.label = 'as.is', col = color.gradient(low='white', high='red', n=100), X11 = T,
+               display.scale = display.scale, grid = T, grid.color = 'grey', cex=2, 
+               main=main)
+  }
+  
+  htmp.res <- NA
+  if(!is.null(output.prefix)){
+    pdf(file=paste(output.prefix, '_', gs.name, '.pdf', sep=''), width = 50, height = h)
+    on.exit(dev.off())
+    x11.b <- FALSE
+  }else{
+    x11(width = 50, height = h)
+    x11.b <- TRUE
+  }
+  
   if(nrow(dh) > 0){
     if(nrow(dh) == 1){
       row.clust <- FALSE
     }
     htmp.res <- my.heatmap(dh, column.clust = F, row.clust = row.clust, 
                            col.center.zero = F, row.label = 'as.is', column.label = NULL,
-                           col = color.gradient(low='white', high='red', n=100), X11 = F, 
+                           col = color.gradient(low='white', high='red', n=100), X11 = x11.b, 
                            column.class = split(names(cell.class.vector), cell.class.vector),
                            columnsep = T, sep.color = 'black', display.scale = display.scale, 
-                           cex = cex, ...)
+                           cex = cex, main=main, ...)
     if(column.clust & nrow(dh) > 1){  ## is column.clust is TRUE, still draw a no column clust plot}
       htmp.res <- my.heatmap(add.noise(dh, 0, 1e-10), column.clust = column.clust, row.clust = row.clust,   
                              col.center.zero = F, row.label = 'as.is', column.label = NULL,
-                             col = color.gradient(low='white', high='red', n=100), X11 = F, 
+                             col = color.gradient(low='white', high='red', n=100), X11 = x11.b, 
                              column.class = split(names(cell.class.vector), cell.class.vector),
                              columnsep = T, sep.color = 'black', display.scale = display.scale, 
-                             cex = cex, ...)  
+                             cex = cex, main=main, ...)  
     }
   }
-  dev.off()
 
-  invisible(list(geneset=gs, gene.cc=gene.cc, cell.cc=cell.cc, heatmap.res=htmp.res))
-}  
+  { ## plot again in PDF
+    my.heatmap(d.aggr, column.clust = T, row.clust = T, col.center.zero = F, row.label = 'as.is', 
+               column.label = 'as.is', col = color.gradient(low='white', high='red', n=100), X11 = x11.b,
+               display.scale = display.scale, grid = T, grid.color = 'grey', cex=2,
+               main=main)
+    
+  }
+
+  invisible(list(geneset=gs, gene.cc=gene.cc, cell.cc=cell.cc, heatmap.res=htmp.res, d.aggr=d.aggr))
+}
 
 check.single.gene <- function(d, norm.d, gene){
   if(!is.element(gene, rownames(d))){
@@ -470,6 +503,37 @@ plot.tsne <- function(tsne.d, cls, fast=TRUE, ...){
       points(tsne.d[names(cls)[cls == i], 1:2], col=cols[(i-1)%%10+1], pch='*')
     }else{
       points(tsne.d[names(cls)[cls == i], 1:2], col=cols[(i-1)%%10+1], pch=(i-1)%%8+1)  
+    }
+  }
+}
+
+plot.tsne.II <- function(tsne.d, class.l, colStyle=c('rainbow', 'heat')[1], pch='.', 
+                      cex=4, plot.legend=TRUE, main=NULL, ...){
+  l <- length(class.l)
+  plot(tsne.d, pch='.', main=main, ...)
+  if(colStyle=='rainbow'){
+    cols <- rainbow(l)      
+  }
+  if(colStyle == 'heat'){
+    cols <- heat.colors(l)
+  }
+  if(l == 2){
+    cols <- c('grey', 'red')
+  }
+  
+  for(i in 1:l){
+    points(tsne.d[class.l[[i]], ], col=cols[i], pch=pch, cex=cex)
+  }
+  if(plot.legend){
+    if(l > 10){
+      x11(height = l + 1) 
+      plot(0,0, col='white', main=main)
+      print('Please click a position to draw legend.')
+      locator(1)
+      legend('topright', col=cols, legend = names(class.l), pch='.', pt.cex=15, cex=1.5)
+    }else{
+      plot(0,0, col='white', main=main)
+      legend('topright', col=cols, legend = names(class.l), pch='.', pt.cex=10, cex=1)
     }
   }
 }
@@ -616,7 +680,7 @@ sc.qc <- function(d, outFile){
 ## cell.class.vector supposed to be 
 ## sampleName is the name of the singleCell Seq sample.
 sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, print.gsea=FALSE,
-                  gsoi.l){
+                  gsoi.l, output.dir='.'){
   if(!setequal(colnames(d), names(cell.class.vector))){
     stop(" colnames(d) != names(cell.class.vector). ")
   }
@@ -684,7 +748,7 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
         print(hs.gi$go.info[rownames(gsea.go)[b], 1, drop=F][1:min(sum(b), print.n), ])
       }
     }
-    save(deg.l, gsea.go.l, gsea.kegg.l, file='middle.res.RData')
+    save(deg.l, gsea.go.l, gsea.kegg.l, file=file.path(output.dir, 'middle.res.RData'))
   }
   
   ## load('middle.res.RData')
@@ -729,7 +793,8 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
     
     width=1200
     height = max(1000 * nrow(td)/2000, 500)
-    tiff(file=paste(sampleName, '_heatmap-', i, '.tif', sep = ''), width = width, height = height)
+    tiff(file=file.path(output.dir, paste(sampleName, '_heatmap-', i, '.tif', sep = '')), 
+         width = width, height = height)
     my.heatmap(td, row.clust = F, column.clust = F, 
                col.center.zero = F, column.label = 'as.is', row.label = NULL,
                col = color.gradient(low='white', high='red', n=100), 
@@ -739,7 +804,8 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
   }
   
   all.markers <- sort(unique(unlist(sapply(marker.gene.l, rownames))))
-  tiff(file=paste(sampleName, '_heatmap-allMarker.tif', sep=''), height=1000, width = 1200)
+  tiff(file=file.path(output.dir, paste(sampleName, '_heatmap-allMarker.tif', sep='')), 
+       height=1000, width = 1200)
   td <- norm.d[all.markers, ,drop=F]
   td[is.na(td)] <- 0
   if(nrow(td) > 0){
@@ -772,37 +838,41 @@ sc.classification <- function(d, method=c('hclust', 'kmeans'), k){
   invisible(list(class.v=class.v, origin.res=origin.res, method=method, k=k))
 }
 
-check.geneset.batch <- function(d, norm.d, gsoi.l, min.sample.n=3, class.v, output.prefix='this', ...){
+check.geneset.batch <- function(d, norm.d, gsoi.l, min.sample.n=3, cell.class.vector, output.prefix='this', ...){
   res.l <- list()
+
   for(gs.name in names(gsoi.l)){
     gs <- gsoi.l[[gs.name]]
-    x1 <- raw.d[intersect(rownames(raw.d), names(gs)), , drop=F]
+    x1 <- d[intersect(rownames(d), gs), , drop=F]
     b <- apply(x1 > 0, 1, sum) > min.sample.n
     raw.d.t <- x1[b, ,drop=F]
     norm.d.t <- norm.d[rownames(raw.d.t), , drop=F]
-    res.l[[gs.name]] <- check.geneset(raw.d.t, norm.d.t, gs, gs.name = gs.name, class.v = class.v, 
-                                      output.prefix = output.prefix, ...)
+    res.l[[gs.name]] <- check.geneset(d = raw.d.t, norm.d = norm.d.t, gs = gs, gs.name =gs.name, 
+                                      cell.class.vector = cell.class.vector, 
+                                      output.prefix = paste(output.prefix, gs.name, sep='_'), ...)
   }
   invisible(res.l)
 }
 
 ## data dir is 10x's data directory containing: barcodes.tsv, genes.tsv, matrix.mtx
-read.10x.mtx <- function(data.dir, min.genes = 1000, ...){
+read.10x.mtx2Seurat <- function(data.dir, min.genes = 1000, ...){
   library(Seurat)
   t <- Read10X(data.dir = data.dir)
   t2 <- CreateSeuratObject(t, min.genes = min.genes, ...)
-  t3 <- as.matrix(t2@raw.data)
-  invisible(t3)
+  invisible(t2)
 }
 
 ## d is output of read.10x.mtx
-sc.preprocess <- function(d, min.expr.genes = 1000, normalize.method='libsize'){
+sc.preprocess <- function(d, min.expr.genes = 1000, normalize.method='libsize', dnames=NULL){
   d <- d[, apply(d > 0, 2, sum) > min.expr.genes]
   d <- d[, apply(d, 2, max, na.rm=T) > 10]
 
-  dnames <- get.gene.info(rownames(d))
-  d.entrez <- dm.rowname.convert(d, id.m = dnames[, c("alias", "GeneID")], keep.dup = TRUE)
-  
+  if(is.null(dnames)){
+    tt <- get.gene.info(rownames(d))    
+    dnames <- tt[, c("alias", "GeneID")]
+  }
+  d.entrez <- dm.rowname.convert(d, id.m = dnames, keep.dup = TRUE)
+
   rm(d)
   mito=check.mito.gene.percentage(d.entrez)
   mito.median <- median(mito$percent.mito)
@@ -929,6 +999,8 @@ monocle.pseudotime.heatmap <- function(cds.order, qval.cutoff=5e-2){
   }
   invisible(BEAM_res)
 }
+## end of Monocle
+###############################
 
 sc.gini <- function(norm.d){  ## use to select features to classifying cells
   stop('Do not use this.')
@@ -938,185 +1010,6 @@ sc.gini <- function(norm.d){  ## use to select features to classifying cells
   
   invisible(cbind(pos=pos.gini.score, neg=neg.gini.score))
 }
-
-## define gene sets of interest
-compile.geneset.of.interest <- function(){
-  load('~/data/geneAnnotation/human/gencode.v27.annotation.RData')
-  load('~/data/geneAnnotation/human/ncbi.gene.info.RData')
-  
-  trav.ind <- grep('^TRAV', gencode$gene.gr$gene_name)
-  t1 <- gencode$gene.gr$gene_name[trav.ind]
-  t2 <- get.gene.info(t1, gene.info = gene.info)
-  tt <- t2[, c('Symbol', 'GeneID')]
-  tt <- unique.matrix(tt)
-  trav.genes <- tt[, 'Symbol']
-  names(trav.genes) <- tt[, 'GeneID']
-  
-  ## apoptosis genes
-  load(file='~/data/pathways/MSigDB/MSigDB_2018.RData')
-  apoptosis.genes <- get.my.geneset.format(Reduce(intersect,msigdb.gs.l[apoptosis.gs.names[c(1:3)]]))
-  
-  ## Human endometrial stromal cells: CD146???IGFBP-1, PRL, TF, PAI-1???CD45/PTPRC
-  t <- c('CD146', 'IGFBP1', 'PRL', 'PAI-1', 'CD45', 'ANPEP') ## 'TF' not sure which genes
-  tt <- get.gene.info(t, gene.info = gene.info)
-  stromal.genes <- tt[, 'Symbol']
-  names(stromal.genes) <- tt[, 'GeneID']
-  
-  ## Human endometrial epithelial cells:EpCAM
-  t <- 'EPCAM'
-  tt <- get.gene.info(t, gene.info = gene.info)
-  epithelial.genes <- tt[, 'Symbol']
-  names(epithelial.genes) <- tt[, 'GeneID']
-  
-  ## immuno genes
-  t <- read.table('~/data/geneAnnotation/human/ImmuneAssociatedGenes.txt', 
-                  sep='\t', header=T, as.is =T)
-  t <- unique.matrix(t[, 2:3])
-  immune.genes <- t[, 1]
-  names(immune.genes) <- t[, 2]
-  
-  ## TFs
-  load('~/data/geneAnnotation/human/TFs/human_tfs.RData')
-  tfs <- tfs.info[, "Symbol"]
-  tfs.info <- unique.matrix(tfs.info[, c('Symbol', 'GeneID')])
-  names(tfs) <- tfs.info[, "GeneID"]
-  gsoi.l <- list(immune=names(immune.genes), epithelial=names(epithelial.genes), stromal=names(stromal.genes), 
-                 trav=names(trav.genes), tfs = names(tfs), apoptosis=apoptosis.genes)
-  
-  ## immune core
-  ## CD276 = B7H3, VTCN1 = B7H4
-  immune.core <- c('PTPRC', 'CD4', 'CD8A', 'CD8B', 'CD3G', 'CD3E', 'CD3D', 'CD19', 'MS4A1', 'FOXP3', 'IFNG', 
-                   'PRF1', 'GZMA', 'GZMK', 'CTLA4', 'IDO1', 'LAG3', 'TIM3', 'PDCD1', 'CD274', 'CD276', 
-                   'VTCN1', 'CCR7', 'HLA-A', 'HLA-B', 'HLA-C', 'HLA-DRB1', 'HLA-DPB1', 'HLA-DQB1', 
-                   'TAP1', 'TAP2', 'B2M')
-  gsoi.l[['immune.core']] <- immune.core
-
-  ## traficking to Tumor
-  traffick2Tumor <- c('PTPRC', 'CX3CL1', 'CXCL9', 'CXCL10', 'CCL5', 'ICAM1', 'ITGB2', 'ITGAL', 'SELE', 'SELP', 'SELL')
-  print(4)
-  t2 <- get.gene.info(traffick2Tumor, gene.info = gene.info)
-  t2 <- t2[t2[,1] != 'SELENOP', ]
-  gsoi.l[['traffickToTumor']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
-  
-  ## ICs
-  t1 <- c('PTPRC', 'PDCD1', 'CD274', 'CD276',  'VTCN1', 'BTLA', 'VSIR', 'TNFRSF4', 'TNFRSF18',  ## TNFRSF4 == OX40; TNFRSF18=GITR
-          'IDO1', 'IDO2', 'CTLA4', 'LAG3', 'TIM3', 'TGFB1', 'TGFB2', 'TGFB3', 'TNFRSF9')  ## HAVCR2 == TIM3; TNFRSF9=4-1BB
-  t2 <- get.gene.info(t1, gene.info = gene.info)
-  gsoi.l[['immuCheck']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
-  
-  ## Infiltration of T cells into tumors
-  t1 <- c('PTPRC', 'ICAM1', 'SELE', 'SELP', 'SELL', 'ITGB2', 'ITGAL')  ## LFA-1 == ITGB2 or ITGAL
-  t2 <- get.gene.info(t1, gene.info = gene.info)
-  gsoi.l[['til']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
-
-  ## pericyte: RGS5
-  ## gsoi.l[['pericyte']] <- c('8490')
-
-  ## Immune, stroma and epithelia
-  t1 <- c('PTPRC', ## PTPRC==CD45, lymphocyte cells
-          'CD247', 'CD3G', 'CD3E', 'CD3D', ## CD3 family, cD247 = CD3-ZETA/CD3H/CD3Q/CD3Z 
-         'FOXP3', ## Treg
-         'CD4', 'CD8A', 'CD8B', 
-         'CD38', 'SDC1', 'TNFRSF17', ## Plasma cells; TNFRSF17 ='BCMA', 
-         'CD34', ## stem cell, endothelial cell
-         'CD19', 'MS4A1',   ## MS4A1 == CD20. B cell 
-         'ITGAX', 'IL3RA',  ## ITGAX == CD11c; CD123==IL3RA. DC cell
-         'NCAM1',   ## CD56 == NCAM1. NK cell
-          'CD14', 'CD33', ## Macrophage/Monocyte
-         'CD68', 'CD163', ## Macrophage
-         'CEACAM8',   ## CD66b == CEACAM8. Granulocyte
-         'ITGA2B', 'ITGB3', 'SELP',   ## CD41==ITGA2B, CD61== ITGB3, CD62 = SELP. Platelet
-         'GYPA',   ## CD235a == GYPA. Erythrocyte
-         'MCAM',  'PECAM1',  ## MCAM == CD146. Endothelial Cell
-         'RGS5', ## pericyte
-         'EPCAM',  ## CD326 == EPCAM. Epithelial Cell
-         )
-  t2 <- get.gene.info(t1, gene.info = gene.info)
-  gsoi.l[['immune.cell.marker']] <- get.my.geneset.format(t2[,3], gene.info = gene.info)
-  
-  ## cell cycle
-  ## source of cell cycle genes: https://www.cell.com/cell/fulltext/S0092-8674(15)00549-8  Figure 4.
-  ## MKI67 == Ki67; CDKN1A==p21
-  ## names(cell.cycle.genes) <- c('AURKA', 'AURKB', 'CCNB1', 'CCNB2', 'MCM10', 'MCM2', 'MCM3', 'MCM4', 'MCM5', 
-  ##                        'MCM6', 'MCM7', 'BIRC5', 'CCNA2', 'PCNA'??????CDKN3???, 'CDK1', 'CDC20', 'MKI67', 'CDKN1A')
-  gsoi.l[['cell.cycle']] <- c("6790", "9212", "891",  "9133", "55388",  "4171", "4172", "4173", "4174", "4175", 
-                              "4176", '332', '890', '5111', '1033', '983', '991', '4288', '1026')
-  
-  ## TCR
-  ## tcr.genes <- c('6955', '6957', '6964', '6965', '28755')
-  ## names(tcr.genes) <- c('TRA', 'TRB', 'TRD', 'TRG', 'TRAC')
-  gsoi.l[['tcr']] <- c('6955', '6957', '6964', '6965', '28755')
-  
-  ## HLA
-  ## hla.genes <- c('3105', '3106', '3107', '3115', '3119', '3123')
-  ## names(hla.genes) <- c('HLA-A', 'HLA-B', 'HLA-C', 'HLA-DPB1', 'HLA-DQB1','HLA-DRB1')
-  gsoi.l[['hla']] <- c('3105', '3106', '3107', '3115', '3119', '3123')
-  
-  ## dna.repair
-  ## dna.repair.genes <- c("5424", "5426", "7157", "7273", "8289", "94025")
-  ## names(dna.repair.genes) <- c('POLD1', 'POLE', 'TP53', 'TTN', 'ARID1A', 'MUC16' )
-  gsoi.l[['dna.repair']] <- c("5424", "5426", "7157", "7273", "8289", "94025")
-  
-  ## lymphatic endothelial cells markers: PDPN and PROX1
-  gsoi.l[['lymph.endothelium']] <- c('10630', '5629')
-  
-  ## CD11c+ microglia differed significantly from blood-derived CD11c+ cells in their cytokine profile, 
-  ## expressing no detectable IL-6, IL-12 or IL-23, and low levels of IL-1??. By contrast, CD11c??? microglia 
-  ## expressed low but detectable levels of all these cytokines. 
-  gsoi.l[['DC']] <- c('3687', '3123', '3119', '3115', ## ITGAX, HLA-DRB1, HLA-DQB1, HLA-DPB1
-                      '7056', '911', '3563', '170482', ## CD141/THBD/BDCA3; CD1C/BDCA1; CD123/IL3RA, CD303/CLEC4C
-                      '3569', '3592', '3593', '51561' ## IL6, IL12A, IL12B, IL23A
-                      )
-  ## http://www.nature.com.ezp-prod1.hul.harvard.edu/articles/s41556-018-0105-4
-  gsoi.l[['basal.cell']] <- c('3853', '3854') ## KRT6A and KRT6B
-  gsoi.l[['secretory.cell']] <- c('4582', '3854') ## MUC1 and MUC16
-  gsoi.l[['cellMarkers']] <- c('3853', '3854', ## KRT6A and KRT6B  for basal cell
-                               '4582', '3854', ## MUC1 and MUC16 for secretory cell
-                               '2670', ## GFAP for astrocyte
-                               '5788', ## PTPRC for lymphocyte
-                               '2993',   ## CD235a == GYPA. Erythrocyte
-                               '4162',  '5175',  ## MCAM == CD146. PECAM1, Endothelial Cell
-                               '8490', '1464', ## RGS5,  CSPG4, pericyte; 
-                               '4072',  ## CD326 == EPCAM. Epithelial Cell
-                               '947',   ## CD34 stem cell
-                               '5054', '2191', '79812', ## FAP, Endoglyx-1 = MMRN2, PAI-1=SERPINE1, stromal cells
-                               '3855', ## cytokeratin (KRT7: 3855)
-                               '2302', ## Ciliated cells: FOXJ1: 2302
-                               '5175', '7450', ## Endothelium: PECAM1: 5175 (CD31), VWF: 7450
-                               '7431', '999', '3855', '290' ## Stroma (pluripotent mesenchymal cells, fibroblast, histiocyte): Vimentin (VIM: 7431) +; E cadherin (CDH1:999) -; Cytokeratin (KRT7: 3855) ; EpCAM (EPCAM:??4072);'ANPEP' 
-                                )
-  gsoi.l[['brainCellMarkers']] <- c('2026', '2023', '1742', '4900', '4133',## ENO2=NSE(Neuron specific enolase), PSD95=DLG4, NRGN, MAP2, Neuron. [ENO1=NNE(non-neural enolase)]  
-                                    '3684', ## CD11b == ITGAM, microglia
-                                    '2670', ## GFAP, Astrocyte
-                                    '10215' ## OLIG2, Oligodendroglia 
-                                    )
-  
-  ## EMT genes: SNAI1, TWIST1, ZEB1, CDH1, SNAI2, CDH2, TWIST2, FOXF1, ZEB2
-  gsoi.l[['EMT.genes']] <- c('999', '1000', '2294', '6615', '6591', '7291', '117581', '6935', '9838') 
-
-  ## Fibroblast marker VIM/vimentin
-  gsoi.l[['fibroblast']] <- c('7431')
-  ## CAF: ACTA1, ACTA2, S100A4, CD29=ITGB1, PDGFR??, CAV1
-  gsoi.l[['CAF']] <- c('59','59', '6275', '3688', '5159', '857')
-  
-  ## decidulization (PRL: 5617???IGFBP1: 3484)
-  gsoi.l[['decidulization']] <- c('5617', '3484') 
-  
-  ## women: E2 receptor (ESR1: 2099; ESR2: 2100); P receptor (PGR: 5241); EGF receptor (EGFR:1956) 
-  gsoi.l[['women']] <- c('2099', '2100', '5241', '1956')
-  
-  for(gs.name in names(gsoi.l)){
-    print(gs.name)
-    if(length(gsoi.l[[gs.name]]) == 0){
-      print("no genes!!!")
-      next()
-    }
-    gsoi.l[[gs.name]] <- get.my.geneset.format(gsoi.l[[gs.name]], gene.info = gene.info)
-  }
-  save(gsoi.l, file='~/data/geneAnnotation/human/gsoi.l.for.singleCellAnalysis.RData')
-  invisible(gsoi.l)
-}
-
 
 ## count.data.deg should be output of sc.deg
 batch.gsea.count.data <- function(count.data.deg, value.column='pvalue'){
@@ -1143,3 +1036,82 @@ batch.gsea.count.data <- function(count.data.deg, value.column='pvalue'){
 ## 1. Mpath  Nature Communication, 2016
 ## 2. Monocle
 ## 3. Wishbone Nature Biotechnology, 2016
+
+########################################################
+## analysis after integrated clustering (such as Seurat's anchor-based integration method)
+## co <- intersect(names(clusters), names(cells))   ## clusters and cells are vector, with names as cell IDs. 
+## xtable <- table(clusters[co], cells[co])  
+## group.l <- list(group1=c(samples.1), group2=c(samples.2))
+integrated.cluster.followup <- function(xtable, group.l, compare.name=NULL, x11.b=TRUE, ...){
+  group1.samples <- group.l[[1]]
+  group2.samples <- group.l[[2]]
+  group1.name <- names(group.l)[1]
+  group2.name <- names(group.l)[2]
+  
+  if(length(c(group1.samples, group2.samples)) > 1){
+    my.heatmap(xtable[, c(group1.samples, group2.samples)], col=color.gradient(low='white'), col.center.zero = F, 
+               grid = T, row.label = 'as.is', column.label = 'as.is', column.clust = F, X11 = x11.b, 
+               main=paste(compare.name, '::', group1.name, ' vs ', group2.name, sep=''), ...)
+  }else{
+    plot(0,0)
+  }
+  
+  if(length(group1.samples) > 1 & length(group2.samples) > 1){
+    l <- apply(xtable, 1, function(x, ss1, ss2){t.test(x[ss1], x[ss2])}, 
+               ss1=group1.samples, ss2=group2.samples)
+    res <- sapply(l, function(x) c(x$p.value, x$estimate))
+    res <- t(res)
+    colnames(res) <- c('p.value', names(group.l))
+    res <- res[order(res[, 'p.value']), ]
+  }else{
+    res <- NA
+  }
+  invisible(res)
+}
+
+sc.edgr <- function(xm, group1.ss, group2.ss, group1.name, group2.name){
+  library(edgeR)
+  cell2group <- c(rep(group1.name, length(group1.ss)), rep(group2.name, length(group2.ss)))
+  names(cell2group) <- c(group1.ss, group2.ss)
+  
+  d <- DGEList(counts=xm[, names(cell2group)], group=factor(cell2group))
+  d <- calcNormFactors(d)
+  d1 <- estimateCommonDisp(d, verbose=T)
+  res <- exactTest(d1)
+  res$table <- res$table[order(res$table[, "PValue"]), ]
+  invisible(res)
+}
+
+## wrapper of integrated.cluster.followup()
+sc.diff.cell.cluster <- function(x, group1.ss, group2.ss, group1.name, group2.name, 
+                                 compare.name=NULL, x11.b=FALSE){
+  group1.ss <- intersect(group1.ss, colnames(x))
+  group2.ss <- intersect(group2.ss, colnames(x))
+  
+  two.group.l <- list(group1.ss, group2.ss)
+  names(two.group.l) <- c(group1.name, group2.name)
+  
+  res <- integrated.cluster.followup(x, group.l = two.group.l, x11.b=x11.b, compare.name  = compare.name)
+}
+
+read.10x.mtx <- function(matrix.dir, min.genes = 500){
+  library(Matrix)
+  barcode.path <- file.path(matrix.dir, "barcodes.tsv.gz")
+  features.path <- file.path(matrix.dir, "features.tsv.gz")
+  matrix.path <- file.path(matrix.dir, "matrix.mtx.gz")
+  mat <- readMM(file = matrix.path)
+  feature.names = read.delim(features.path, 
+                             header = FALSE,
+                             stringsAsFactors = FALSE)
+  barcode.names = read.delim(barcode.path, 
+                             header = FALSE,
+                             stringsAsFactors = FALSE)
+  colnames(mat) = barcode.names$V1
+  rownames(mat) = feature.names$V1
+  mat <- as.matrix(mat)
+  if(min.genes > 0){
+    b <- apply(mat, 2, function(x) sum(x >0)) >= min.genes
+    mat <- mat[, b]
+  }
+  invisible(mat)
+}
