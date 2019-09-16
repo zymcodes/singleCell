@@ -777,7 +777,10 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
     co.down.gs <- intersect(rownames(gene.info$gene.info), row.names(ts.down))
     co.gs <- union(co.up.gs, co.down.gs)
     marker.gene.l[[i]] <- data.frame(gene.info$gene.info[co.gs, ,drop=F], ts[co.gs, ,drop=F])
-    
+  }
+  
+  for(i in 1:length(marker.gene.l)){
+    co.gs <- rownames(marker.gene.l[[i]])
     if(length(co.gs) == 0){
       next
     }
@@ -791,15 +794,20 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
       td <- td[1:200, ]
     }
     
+
     width=1200
     height = max(1000 * nrow(td)/2000, 500)
     tiff(file=file.path(output.dir, paste(sampleName, '_heatmap-', i, '.tif', sep = '')), 
-         width = width, height = height)
-    my.heatmap(td, row.clust = F, column.clust = F, 
-               col.center.zero = F, column.label = 'as.is', row.label = NULL,
-               col = color.gradient(low='white', high='red', n=100), 
-               columnsep = T, sep.color = 'black',
-               column.class = cell.class.l, X11 = F, main=i)
+           width = width, height = height)
+    if(nrow(td) > 1){
+      my.heatmap(td, row.clust = F, column.clust = F, 
+                 col.center.zero = F, column.label = 'as.is', row.label = NULL,
+                 col = color.gradient(low='white', high='red', n=100), 
+                 columnsep = T, sep.color = 'black',
+                 column.class = cell.class.l, X11 = F, main=i)
+    }else{
+      my.vioplot(split(td[1, ], colnames(td)))  
+    }
     dev.off()
   }
   
@@ -864,16 +872,16 @@ read.10x.mtx2Seurat <- function(data.dir, min.genes = 1000, ...){
 
 ## d is output of read.10x.mtx
 sc.preprocess <- function(d, min.expr.genes = 1000, normalize.method='libsize', dnames=NULL){
-  d <- d[, apply(d > 0, 2, sum) > min.expr.genes]
-  d <- d[, apply(d, 2, max, na.rm=T) > 10]
-
   if(is.null(dnames)){
     tt <- get.gene.info(rownames(d))    
     dnames <- tt[, c("alias", "GeneID")]
   }
   d.entrez <- dm.rowname.convert(d, id.m = dnames, keep.dup = TRUE)
-
   rm(d)
+  
+  d.entrez <- d.entrez[, apply(d.entrez > 0, 2, sum) > min.expr.genes]
+  d.entrez <- d.entrez[, apply(d.entrez, 2, max, na.rm=T) > 10]
+  
   mito=check.mito.gene.percentage(d.entrez)
   mito.median <- median(mito$percent.mito)
   mito.mad <- mad(mito$percent.mito)

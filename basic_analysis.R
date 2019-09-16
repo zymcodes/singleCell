@@ -6,7 +6,7 @@ if(length(paras) != 4){
 }
 fh <- paras[1]  ## file handle
 sampleName <- paras[2]
-min.gene.n <- paras[3]
+min.gene.n <- as.integer(paras[3])
 gene.sets.file <- paras[4]
 cat('Rscript this.R ', fh, sampleName, min.gene.n, gene.sets.file, "\n")
 
@@ -46,6 +46,7 @@ if(xv > 0){
   print('Count data.')
   wd <- sc.preprocess(rd, min.expr.genes = min.gene.n, normalize.method = 'libsize', dnames = dnames)
 }
+
 
 print(dim(wd$norm.d$d.norm))
 cell.sizes <- apply(wd$raw.d, 2, sum)
@@ -96,15 +97,32 @@ if(pca.b){
 }else{
   pdf(file=file.path(sampleName, paste(sampleName, "_tsne.pdf", sep='')))
 }
-
 for(k in 2:10){
   cls <- cutree(hcl, k)
   plot.tsne(tsne.d, cls[rownames(tsne.d)], fast = FALSE, main=paste(sampleName, k))  
 }
 dev.off()
+
+## plan to use UMAP replace tsne
+if(0){
+  d.sr <- CreateSeuratObject(wd$raw.d)
+  d.sr@var.genes <- rownames(d.sr@raw.data)
+  d.sr <- ScaleData(d.sr)
+  d.sr <-RunPCA(d.sr)
+  d.sr <- RunUMAP(d.sr)
+  umap.d <- d.sr@dr$umap@cell.embeddings
+  
+  pdf(file=file.path(sampleName, paste(sampleName, "_UMAP.pdf", sep='')))
+  for(k in 2:10){
+    cls <- cutree(hcl, k)
+    plot.tsne(umap.d, cls[rownames(umap.d)], fast=FALSE, main=paste(sampleName, k))
+  }
+  dev.off()
+}
+
+
 ## add tsen.d to _hclust.RData
 save(hc.res, hcl.10, hcl, tsne.d, tsne.res, file=file.path(sampleName, paste(sampleName, '_hclust.RData', sep='')))
-
 
 gs.res.l <- list()
 ## load('~/data/geneAnnotation/human/gsoi.l.for.singleCellAnalysis.RData')
@@ -119,7 +137,7 @@ for(gs.name in names(gsoi.l)){
   t <- check.geneset(d=wd$raw.d, norm.d = wd$norm.d$d.norm, gs=gs,
                      gs.name = gs.name, cell.class.vector = hcl.10,
                      output.prefix = file.path(sampleName, paste(sampleName, 'gsoi', sep='-')),
-                     row.clust = T,  column.clust = T, display.scale = 'none')
+                     row.clust = T,  column.clust = T, display.scale = 'none', x11.bulk = FALSE)
   
   gs.res.l[[gs.name]] <- t
 }

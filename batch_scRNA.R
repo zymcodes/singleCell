@@ -186,23 +186,30 @@ this.geneset.analysis <- function(wd, gsoi.l, cell.info, comparison.schema.list,
   dev.off()
   
   edgr.res.l <- list()
+  pvalue.cutoff <- 1e-5
+  degs.l <- list()
   for(cmpr in names(comparison.schema.list)){
     this.compare <- comparison.schema.list[[cmpr]]
     edgr.res.l[[cmpr]] <- sc.edgr(xm=xm, group1.ss=intersect(this.compare[[1]], colnames(xm)),
                                   group2.ss = intersect(this.compare[[2]], colnames(xm)),
                                   group1.name = names(this.compare)[1], group2.name = names(this.compare)[2])    
-    deg.b <- edgr.res.l[[cmpr]]$table[, 'PValue'] < 1e-5
+    deg.b <- edgr.res.l[[cmpr]]$table[, 'PValue'] < pvalue.cutoff
     output.m <- edgr.res.l[[cmpr]]$table[deg.b, ]
     output.m <- data.frame(output.m, 
                            gene.info$gene.info[rownames(output.m), 
                                                c("GeneID", "Symbol", "map_location", "description")])
+    degs.l[[cmpr]] <- rownames(output.m)
     write.csv(output.m, file=file.path(output.dir, paste('degs', cmpr, 'csv', sep='.')))
   }
+
+  pdf(file=file.path(output.dir, 'VennDiagram_of_DEGs.pdf'))
+  my.venn(degs.l)
+  dev.off()
 
   deg.co.m <- NULL
   
   co <- Reduce(union, sapply(edgr.res.l, function(x, cutoff){ rownames(x$table)[x$table[, 'PValue'] < cutoff]}, 
-                                cutoff=1e-5))
+                                cutoff=pvalue.cutoff))
   t1 <- NULL
   for(cmpr in names(edgr.res.l)){
     if(is.null(t1)){
@@ -245,8 +252,19 @@ this.geneset.analysis <- function(wd, gsoi.l, cell.info, comparison.schema.list,
   
 save(wd, si, cell.cluster.file, cell.info, p.res.l, edgr.res.l, co.degs, comparison.schema.list, umap.d,
      output.dir, file=file.path(output.dir, 'wd.RData'))
-  
+
+for(gs.name in names(degs.l)){
+  print(gs.name)
+  if(length(degs.l[[gs.name]]) == 0){
+    print("no genes!!!")
+    next()
+  }
+  degs.l[[gs.name]] <- get.my.geneset.format(degs.l[[gs.name]], gene.info = gene.info)
+}
+
 this.geneset.analysis(wd, this.gsoi.l, cell.info, comparison.schema.list = comparison.schema.list, 
+                      output.dir = output.dir, cellType = cellType, x11.bulk=F )
+this.geneset.analysis(wd, degs.l, cell.info, comparison.schema.list = comparison.schema.list, 
                       output.dir = output.dir, cellType = cellType, x11.bulk=F )
 
 degs.20 <- co.degs[, "GeneID"][1:20]
@@ -263,12 +281,14 @@ for(g in goi){
 dev.off()
 
 save(wd, si, cell.cluster.file, cell.info, p.res.l, edgr.res.l, co.degs, comparison.schema.list, umap.d,
-     output.dir, goi, file=file.path(output.dir, 'wd.RData'))
+     goi, degs.l, file=file.path(output.dir, 'wd.RData'))
 
 
 ## customized analysis
 if(0){
   ## data.file <- 'CD19_test/wd.RData'
+  ## source(config.file)
+
   ne <- new.env()
   load(data.file, envir = ne)
   attach(ne)
