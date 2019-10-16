@@ -1,6 +1,5 @@
 ## to dos:
 ## 1. cluster Seurat results, and hierarchically identifye DEGs.
-
 args <- commandArgs(trailingOnly = TRUE)
 
 if(length(args) != 1){
@@ -22,82 +21,6 @@ output.dir <- file.path(res.dir, output.dir)
 if(!dir.exists(output.dir)){
   dir.create(output.dir)
 }
-
-this.gene.analysis <- function(wd, umap.d, gene, cell.info, title=NULL){
-  gi <- get.gene.info(gene)
-  if(nrow(gi) > 1){
-    stop('More than 1 record found for the gene.')
-  }
-  gid <- gi[,"GeneID"]
-  gene.name <- gi[, "Symbol"]
-  
-  if(is.null(title)){
-    title <- gene.name
-  }
-  
-  b <- wd[gid, ] > 0
-  plot.tsne.II(umap.d, split(names(b), b), main=gene.name)
-  
-  l <- split(wd[gid, ], cell.info[colnames(wd), "cluster"]) 
-  nms <- as.character(sort(unique(cell.info[, "cluster"])))
-  l <- l[nms]
-  names(l) <- paste('c', names(l), sep='')
-  
-  my.vioplot(l, main=paste(title, 'cluster', sep='::'), las=2)
-  
-  means <- sort(sapply(l, mean))
-  set.seed(1)
-  cols <- sample(rainbow(12), length(means), replace = T)
-  barplot(means, col=cols, main=paste(title, 'cluster', sep='::'), las=2)
-  
-  for(cmpr in names(comparison.schema.list)){
-    pair.name <- paste(names(comparison.schema.list[[cmpr]]), collapse ='_vs_')
-    main <- paste(c(title, cellType, cmpr, pair.name), collapse ='_')
-    sample2class <- list2vector(comparison.schema.list[[cmpr]])
-    cells <-  rownames(cell.info)[is.element(cell.info[, "sid"], names(sample2class))]
-    cell2class <- sample2class[cell.info[cells, "sid"]]
-    names(cell2class) <- cells
-    cell2class <- sort(cell2class)
-    
-    l <- split(wd[gid, ], cell2class[colnames(wd)])
-
-    my.vioplot(l, main=main, las=2)
-    
-    means <- sort(sapply(l, mean))
-    set.seed(1)
-    cols <- sample(rainbow(12), length(means), replace = T)
-    barplot(means, col=cols, main=main, las=2)
-  }
-}
-
-this.geneset.analysis <- function(wd, gsoi.l, cell.info, comparison.schema.list, 
-                                  output.dir, cellType=NULL, title=NULL, ...){
-  cell2class <- cell.info[, "cluster"]
-  cell2class <- sort(cell2class)
-  
-  wd <- wd[, names(cell2class)]
-  
-  check.geneset.batch(d = wd, norm.d = wd, gsoi.l = gsoi.l, min.sample.n = 0, row.clust = T,  
-                      cell.class.vector = cell2class, main=paste(title, cellType, 'cluster', sep='_'),
-                      output.prefix = file.path(output.dir, paste(cellType, 'cluster_heatmap', sep='_')), 
-                      ...)
-  
-  for(cmpr in names(comparison.schema.list)){
-    pair.name <- paste(names(comparison.schema.list[[cmpr]]), collapse ='_vs_')
-    main <- paste(c(title, cellType, cmpr, pair.name), collapse ='_')
-    sample2class <- list2vector(comparison.schema.list[[cmpr]])
-    cells <-  rownames(cell.info)[is.element(cell.info[, "sid"], names(sample2class))]
-    cell2class <- sample2class[cell.info[cells, "sid"]]
-    names(cell2class) <- cells
-    cell2class <- sort(cell2class)
-
-    this.wd <- wd[, names(cell2class)]
-    check.geneset.batch(d = this.wd, norm.d = this.wd, gsoi.l = gsoi.l, min.sample.n = 0, row.clust = T,
-                        cell.class.vector = cell2class, main=main,
-                        output.prefix = file.path(output.dir, paste(main, 'heatmap', sep='_')), ...)
-  }
-}
-
 
 ## 0. load codes and metaData
 {
@@ -124,17 +47,38 @@ this.geneset.analysis <- function(wd, gsoi.l, cell.info, comparison.schema.list,
 {
   load(si.file)
   load(comparison.schema.file)
-  load(data.file)
+  load(cell.marker.file)
+  
+  if(exists('keggMeta.file')){
+    ne <- new.env()
+    x <- load(keggMeta.file, envir = ne)
+    keggMeta.l <- ne[[x]]
+    load(kegg.file)
+  }else{
+    keggMeta.l <- NULL
+    keggMeta.file <- NULL
+    kegg.l <- NULL
+    kegg.file <- NULL
+  }
+
   load(gsoi.file)
   umap.d <- as.matrix(read.table(umap.file, as.is=T, sep='\t', header = T, row.names = 1))
   clusters <- as.matrix(read.table(cell.cluster.file, as.is=T, sep='\t', header = T, row.names = 1))[,1]
-  
+  cl.marker.m <- as.matrix(read.table(cluster.marker.file, as.is=T, sep='\t', header = T))
+  cl.marker.m[,'GeneID'] <- as.character(cl.marker.m[,'GeneID'])
+  cl.marker.l <- split(gsub(' ', '', cl.marker.m[, "GeneID"]), cl.marker.m[, "cluster"])
+  cl.marker.l <- get.my.geneset.format.batch(cl.marker.l)
+
   t1 <- t(sapply(strsplit(names(clusters), '_'), function(x) paste(x[-1], collapse = '_')))
   cell.info <- cbind(clusters, t(t1), si[t1, ])
   colnames(cell.info)[1:2] <- c('cluster', 'sid')
   
-  wd <- d.aggr  ########*****************************************************************
-  rm(d.aggr)
+  ne <- new.env()
+  x <- load(data.file, envir = ne)
+  wd <-  ne[[x]] ########*****************************************************************
+  wd <- as.matrix(wd)
+  rm(ne)
+  ## colnames(wd) <- gsub('.', '-', colnames(wd), fixed = T)
 }
 
 ## 0.2 data QC
@@ -170,46 +114,69 @@ this.geneset.analysis <- function(wd, gsoi.l, cell.info, comparison.schema.list,
       }
     }
   }
+
+  cell.gene.ns <- apply(wd > 0, 2, sum)
+  save(wd, config.file, si, cell.cluster.file, cell.marker.file, keggMeta.file, cell.info, kegg.file, 
+       comparison.schema.list, umap.d, output.dir, cell.marker.l, cl.marker.l,  keggMeta.l, kegg.l, 
+       cell.gene.ns, 
+       file=file.path(output.dir, 'wd.RData'))
 }
 
 ############
 ## Analysis:
 ## 1. bulk analysis:
-{
+if(length(unique(cell.info[, "sid"])) > 1){  ##  Single sample analysis, OR NOT?
   xm <- aggregate.II(wd, v=cell.info[colnames(wd), "sid"], f=sum, byrow = F)
   pdf(file=file.path(output.dir, 'bulk.analysis.pdf'), width=15)
   
   my.hclust(log201(xm), main="unsupervised hierarchical clustering of pseudo-bulk samples", noX = T)
   cc <- cor(log201(xm))
-  my.heatmap(cc, col.center.zero = F, col = color.gradient(low='white', high = 'red'), grid.color = 'grey', 
-             grid = T, row.label = 'as.is', column.label = 'as.is', X11 = F)
+  my.heatmap(cc, col.center.zero = F, col = color.gradient(low='white', middle = 'blue', high = 'red'), 
+             grid.color = 'grey', grid = T, row.label = 'as.is', column.label = 'as.is', X11 = F)
   dev.off()
   
   edgr.res.l <- list()
-  pvalue.cutoff <- 1e-5
-  degs.l <- list()
+  fdr.cutoff <- 0.05
+  degs.l <- deg.keggMeta.l <- list()
   for(cmpr in names(comparison.schema.list)){
     this.compare <- comparison.schema.list[[cmpr]]
     edgr.res.l[[cmpr]] <- sc.edgr(xm=xm, group1.ss=intersect(this.compare[[1]], colnames(xm)),
                                   group2.ss = intersect(this.compare[[2]], colnames(xm)),
-                                  group1.name = names(this.compare)[1], group2.name = names(this.compare)[2])    
-    deg.b <- edgr.res.l[[cmpr]]$table[, 'PValue'] < pvalue.cutoff
+                                  group1.name = names(this.compare)[1], group2.name = names(this.compare)[2]) 
+    deg.b <- edgr.res.l[[cmpr]]$table[, 'FDR'] < fdr.cutoff
     output.m <- edgr.res.l[[cmpr]]$table[deg.b, ]
     output.m <- data.frame(output.m, 
                            gene.info$gene.info[rownames(output.m), 
                                                c("GeneID", "Symbol", "map_location", "description")])
     degs.l[[cmpr]] <- rownames(output.m)
     write.csv(output.m, file=file.path(output.dir, paste('degs', cmpr, 'csv', sep='.')))
+    
+    if(!is.null(keggMeta.l)){
+      deg.keggMeta.l[[cmpr]] <- gsea.fisher(degs.l[[cmpr]], genesets = list2matrix(keggMeta.l), 
+                                              all = rownames(wd), min.pathway.size =  10, 
+                                              alternative = 'two.sided')
+    }
   }
-
-  pdf(file=file.path(output.dir, 'VennDiagram_of_DEGs.pdf'))
-  my.venn(degs.l)
-  dev.off()
+  degs.l <- get.my.geneset.format.batch(degs.l)
+  
+  deg.keggMeta.m <- t(list2matrix.II(lapply(deg.keggMeta.l, function(x) x[, "fisher.exact.p"])))
+  WriteXLS::WriteXLS(x = as.data.frame(deg.keggMeta.m), row.names = T, col.names =T, 
+                     ExcelFileName = file.path(output.dir, 'deg.keggMeta.pvalue.matrix.xls'))
+  x.l <- lapply(deg.keggMeta.l, as.data.frame)
+  WriteXLS::WriteXLS(x = x.l, row.names = T, col.names =T, 
+                     ExcelFileName = file.path(output.dir, 'deg.keggMeta.l.xls'))
+  
+  
+  if(length(degs.l) <= 5){
+    pdf(file=file.path(output.dir, 'VennDiagram_of_DEGs.pdf'))
+    my.venn(degs.l)
+    dev.off()
+  }
 
   deg.co.m <- NULL
   
-  co <- Reduce(union, sapply(edgr.res.l, function(x, cutoff){ rownames(x$table)[x$table[, 'PValue'] < cutoff]}, 
-                                cutoff=pvalue.cutoff))
+  co <- Reduce(union, sapply(edgr.res.l, function(x, cutoff){ rownames(x$table)[x$table[, 'FDR'] < cutoff]}, 
+                                cutoff=fdr.cutoff))
   t1 <- NULL
   for(cmpr in names(edgr.res.l)){
     if(is.null(t1)){
@@ -222,66 +189,133 @@ this.geneset.analysis <- function(wd, gsoi.l, cell.info, comparison.schema.list,
   
   co.degs <- data.frame(t1, gene.info$gene.info[rownames(t1), c("GeneID", "Symbol", "map_location", "description")])
   write.csv(co.degs, file=file.path(output.dir, 'degs.multi.comparison.COMMON.csv'))
-  save(edgr.res.l, co.degs, file=file.path(output.dir, 'bulk.degs.RData'))
+  save(config.file, edgr.res.l, co.degs, degs.l, fdr.cutoff, deg.keggMeta.l, deg.keggMeta.m,
+        file=file.path(output.dir, 'bulk.degs.RData'))
+}else{
+  ##  Single sample analysis!
+  edgr.res.l <- degs.l <- co.degs <- NULL
 }
 
 ## 2. anchored clusters and followup analysis
 {
-  pdf(file=file.path(output.dir, 'cell_number_distribution.pdf'))
-  barplot(sort(table(cell.info[, "group"])), main='groups')
-  barplot(sort(table(cell.info[, "cluster"])), main='cluster')
-  barplot(sort(table(cell.info[, "sid"])), main='patients')
+  if(!is.null(keggMeta.l)){
+    cl.keggMeta.res <- cluster.pathway.analysis(cl.marker.l, pathway.l = keggMeta.l, all.genes = rownames(wd), 
+                                         pathwayName = 'keggMeta', min.pathway.size = 10, 
+                                         alternative = 'greater')
+    cl.kegg.res <- cluster.pathway.analysis(cl.marker.l, pathway.l = kegg.l, all.genes = rownames(wd),
+                                      pathwayName = 'kegg', min.pathway.size = 10,
+                                      alternative = 'greater')
+    wd.kegg <- gene2pathway(wd, kegg.l)
+    wd.kegg <- wd.kegg[, rownames(cell.info)[order(cell.info[, "cluster"])]]
+
+    kegg.ps <- intersect(names(kegg.l), rownames(wd.kegg))
+    names(kegg.ps) <- kegg.ps
+    t1 <- rownames(cl.keggMeta.res$m)[unique(which(cl.keggMeta.res$m < 0.01, arr.ind = T)[,1])]
+    ps <- kegg.ps[t1]
+    a <- check.geneset(wd.kegg, norm.d = wd.kegg, gs = ps, gs.name = 'kegg metabolism', 
+                       plot.each.gene = T, cell.class.vector = cell.info[colnames(wd.kegg), "cluster"], 
+                       output.prefix = file.path(output.dir, 'KEGG_metabolism_score'), 
+                       main = 'pathway score of kegg metabolism', x11.bulk = F)
+    
+    t2 <- rownames(cl.kegg.res$m)[unique(which(cl.kegg.res$m < 0.01, arr.ind = T)[,1])]
+    ps <- kegg.ps[t2]
+    a <- check.geneset(wd.kegg, norm.d = wd.kegg, gs = ps, gs.name = 'kegg', 
+                       plot.each.gene = T, cell.class.vector = cell.info[colnames(wd.kegg), "cluster"], 
+                       output.prefix = file.path(output.dir, 'KEGG_score'),
+                       main = 'pathway score of kegg', x11.bulk = F)
+    
+    pdf(file=file.path(output.dir, 'KEGG.score_UMAP_sigClusterPathway.pdf'))
+    for(pathway in ps[1:min(10, length(ps))]){
+      plot.umap(umap.d = umap.d, x=wd.kegg[pathway, ], main=pathway)
+    }
+    dev.off()
+  }
+  
+  pdf(file=file.path(output.dir, 'cell_gene_number_distribution.pdf'), width = 12)
+  ## barplot(sort(table(cell.info[, "group"])), main='groups', ylab='number of cells')
+  barplot(sort(table(cell.info[, "cluster"])), main='cluster', ylab='number of cells')
+  barplot(sort(table(cell.info[, "sid"])), main='patients', ylab='number of cells', las=2)
+ 
+  mean.genes <- sapply(split(cell.gene.ns, cell.info[names(cell.gene.ns), "cluster"]), mean)
+  median.genes <- sapply(split(cell.gene.ns, cell.info[names(cell.gene.ns), "cluster"]), median)
+  plot(mean.genes, median.genes[names(mean.genes)],  
+       xlab='mean of gene in each cell', ylab='median of genes in each cell', main='gene number')
+  text(mean.genes, median.genes[names(mean.genes)], names(mean.genes), adj = 1, cex = 2, col=2)
+  
+  dev.off()
+ 
+  cluster.d <- aggregate.II(m = wd, v=cell.info[colnames(wd), "cluster"], f = 'sum', byrow = F)
+  
+  pdf(file=file.path(output.dir, 'cluster.aggregated.analysis.pdf'), width = 15)
+  cl.cl <- my.hclust(log201(cluster.d), main="unsupervised hierarchical clustering of clusters", noX = T)
+  barplot(sort(table(cell.info[, "cluster"])), las=2)
   dev.off()
   
-  x <- table(cell.info[, "cluster"], cell.info[, "sid"])
-  x <- t(t(x)/colSums(x))
-  
-  p.res.l <- list()
-  pdf(file=file.path(output.dir, 'cluster_cell_distribution.pdf'), width=16)
-  for(cmpr in names(comparison.schema.list)){
-    p.res.l[[cmpr]] <- integrated.cluster.followup(xtable = x, compare.name = cmpr, 
-                                                   group.l = comparison.schema.list[[cmpr]], x11.b = F)
-  }
-  dev.clear()
-
-  for(cmpr in names(p.res.l)){
-    write.csv(p.res.l[[cmpr]], 
-              file=file.path(output.dir, paste('cluster.diff_', cmpr, '.csv', sep='')))  
+  #######################################################################
+  if(length(unique(cell.info[, "sid"])) > 1){ ##  Single sample analysis, OR NOT?
+    x <- table(cell.info[, "cluster"], cell.info[, "sid"])
+    x <- t(t(x)/colSums(x))
+    
+    cl.diff.res.l <- list()
+    pdf(file=file.path(output.dir, 'cluster_cell_distribution.pdf'), width=16)
+    for(cmpr in names(comparison.schema.list)){
+      cl.diff.res.l[[cmpr]] <- integrated.cluster.followup(xtable = x, compare.name = cmpr, 
+                                                           group.l = comparison.schema.list[[cmpr]], x11.b = F)
+    }
+    dev.clear()
+    for(cmpr in names(cl.diff.res.l)){
+      write.csv(cl.diff.res.l[[cmpr]], 
+                file=file.path(output.dir, paste('cluster.diff_', cmpr, '.csv', sep='')))  
+    }
+    
+    degs.20 <- co.degs[, "GeneID"][1:20]
+    if(!exists('goi')){
+      goi <- degs.20 
+    }else{
+      goi <- c(goi, degs.20)
+    }
+    
+    cluster.deg.m <- matrix(0, nrow=length(cl.marker.l), ncol=length(degs.l), 
+                            dimnames = list(names(cl.marker.l), names(degs.l)))
+    for(i in 1:length(cl.marker.l)){
+      for(j in 1:length(degs.l)){
+        cluster.deg.m[names(cl.marker.l)[i], names(degs.l)[j]] <- length(intersect(cl.marker.l[[i]], degs.l[[j]]))
+      }
+    }
+  }else{
+    cluster.deg.m <- goi <- cl.diff.res.l <- NULL
+    ##  Single sample analysis!
   }
 }
-  
-save(wd, si, cell.cluster.file, cell.info, p.res.l, edgr.res.l, co.degs, comparison.schema.list, umap.d,
-     output.dir, file=file.path(output.dir, 'wd.RData'))
 
-for(gs.name in names(degs.l)){
-  print(gs.name)
-  if(length(degs.l[[gs.name]]) == 0){
-    print("no genes!!!")
-    next()
-  }
-  degs.l[[gs.name]] <- get.my.geneset.format(degs.l[[gs.name]], gene.info = gene.info)
-}
 
-this.geneset.analysis(wd, this.gsoi.l, cell.info, comparison.schema.list = comparison.schema.list, 
+pdf(file=file.path(output.dir, 'cell.identity.pdf'), width=20)
+cell.identify.info.l <- check.cluster.identify(cl.marker.l = cl.marker.l, cell.marker.l = cell.marker.l, 
+                                               tfs = gsoi.l$tfs, cluster.d = cluster.d, 
+                                               gi=gene.info$gene.info, x11.b = FALSE)
+dev.off()
+
+save(wd, si, cell.info, config.file, cell.cluster.file, cell.marker.file, keggMeta.file, kegg.file, 
+     comparison.schema.list, cell.marker.l, cl.marker.l, keggMeta.l, this.gsoi.l, umap.d, kegg.l,
+     cluster.d, cl.diff.res.l, cl.keggMeta.res, cl.kegg.res, cluster.deg.m, cell.identify.info.l, 
+     edgr.res.l, degs.l, co.degs, goi, output.dir, wd.kegg,
+     file=file.path(output.dir, 'wd.RData'))
+
+## plots
+check.geneset.wrapper(wd, this.gsoi.l, cell.info, comparison.schema.list = comparison.schema.list, 
                       output.dir = output.dir, cellType = cellType, x11.bulk=F )
-this.geneset.analysis(wd, degs.l, cell.info, comparison.schema.list = comparison.schema.list, 
-                      output.dir = output.dir, cellType = cellType, x11.bulk=F )
-
-degs.20 <- co.degs[, "GeneID"][1:20]
-if(!exists('goi')){
-  goi <- degs.20 
-}else{
-  goi <- c(goi, degs.20)
-}
+check.geneset.wrapper(wd, degs.l, cell.info, comparison.schema.list = comparison.schema.list, 
+                      output.dir = output.dir, cellType = cellType, x11.bulk=F, max.gene.n = 100)
 
 pdf(file=file.path(output.dir, 'gene.analysis.pdf'))
 for(g in goi){
-  this.gene.analysis(wd, umap.d, g, cell.info)  
+  sc.single.gene.analysis(wd, umap.d, g, cell.info, comparison.schema.list)  
 }
 dev.off()
 
-save(wd, si, cell.cluster.file, cell.info, p.res.l, edgr.res.l, co.degs, comparison.schema.list, umap.d,
-     goi, degs.l, file=file.path(output.dir, 'wd.RData'))
+cat('\n---------------------\n')
+cat('W e l l   d o n e !\n')
+cat('---------------------\n\n')
 
 
 ## customized analysis
@@ -293,12 +327,12 @@ if(0){
   load(data.file, envir = ne)
   attach(ne)
   custom.gsoi.l <- list()
-  this.geneset.analysis(wd, custom.gsoi.l, cell.info, output.dir = output.dir, cellType = cellType, main = NULL)
+  check.geneset.wrapper(wd, custom.gsoi.l, cell.info, output.dir = output.dir, cellType = cellType, main = NULL)
 
   custom.gs <- c()
   pdf(file='custermized.gene.analysis.pdf')
   for(g in custom.gs){
-    this.gene.analysis(wd, umap.d, '915', cell.info)    
+    sc.single.gene.analysis(wd, umap.d, '915', cell.info)    
   }
   detach(ne)
 }

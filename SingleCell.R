@@ -358,6 +358,9 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
   gs.id2name <- names(gs)
   names(gs.id2name) <- gs
   
+  d.aggr <- aggregate.II(d, v=cell.class.vector, f = 'sum', byrow = F)
+  d.aggr <- apply(d.aggr, 2, function(x) x/sum(x)*1e6)
+  
   d <- d[gs, ]
   norm.d <- norm.d[gs, ]
   
@@ -414,11 +417,14 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
   
   main <- paste(main, gs.name, sep='::')
   
-  d.aggr <- aggregate.II(add.noise(dh), v=cell.class.vector, f = 'mean', byrow = F)
+  ## d.aggr <- aggregate.II(add.noise(dh), v=cell.class.vector, f = 'mean', byrow = F)
+  rownames(d.aggr) <- gs.id2name[rownames(d.aggr)]
+  d.aggr <- d.aggr[rownames(dh), ,drop=F]
   
   if(x11.bulk){ ## plot in X11, and will be plot again in PDF.
     my.heatmap(d.aggr, column.clust = T, row.clust = T, col.center.zero = F, row.label = 'as.is', 
-               column.label = 'as.is', col = color.gradient(low='white', high='red', n=100), X11 = T,
+               column.label = 'as.is', col = color.gradient(low='white', middle = 'blue', high='red', n=100),
+               X11 = T,
                display.scale = display.scale, grid = T, grid.color = 'grey', cex=2, 
                main=main)
   }
@@ -439,14 +445,14 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
     }
     htmp.res <- my.heatmap(dh, column.clust = F, row.clust = row.clust, 
                            col.center.zero = F, row.label = 'as.is', column.label = NULL,
-                           col = color.gradient(low='white', high='red', n=100), X11 = x11.b, 
+                           col = color.gradient(low='white', middle = 'blue', high='red', n=100), X11 = x11.b, 
                            column.class = split(names(cell.class.vector), cell.class.vector),
                            columnsep = T, sep.color = 'black', display.scale = display.scale, 
                            cex = cex, main=main, ...)
     if(column.clust & nrow(dh) > 1){  ## is column.clust is TRUE, still draw a no column clust plot}
       htmp.res <- my.heatmap(add.noise(dh, 0, 1e-10), column.clust = column.clust, row.clust = row.clust,   
                              col.center.zero = F, row.label = 'as.is', column.label = NULL,
-                             col = color.gradient(low='white', high='red', n=100), X11 = x11.b, 
+                             col = color.gradient(low='white', middle = 'blue', high='red', n=100), X11 = x11.b, 
                              column.class = split(names(cell.class.vector), cell.class.vector),
                              columnsep = T, sep.color = 'black', display.scale = display.scale, 
                              cex = cex, main=main, ...)  
@@ -455,7 +461,7 @@ check.geneset <- function(d, norm.d, gs, gs.name, plot.each.gene=FALSE, cell.cla
 
   { ## plot again in PDF
     my.heatmap(d.aggr, column.clust = T, row.clust = T, col.center.zero = F, row.label = 'as.is', 
-               column.label = 'as.is', col = color.gradient(low='white', high='red', n=100), X11 = x11.b,
+               column.label = 'as.is', col = color.gradient(low='white', middle = 'blue', high='red', n=100), X11 = x11.b,
                display.scale = display.scale, grid = T, grid.color = 'grey', cex=2,
                main=main)
     
@@ -802,7 +808,7 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
     if(nrow(td) > 1){
       my.heatmap(td, row.clust = F, column.clust = F, 
                  col.center.zero = F, column.label = 'as.is', row.label = NULL,
-                 col = color.gradient(low='white', high='red', n=100), 
+                 col = color.gradient(low='white', middle = 'blue', high='red', n=100), 
                  columnsep = T, sep.color = 'black',
                  column.class = cell.class.l, X11 = F, main=i)
     }else{
@@ -824,7 +830,7 @@ sc.hc <- function(d, norm.d, cell.class.vector, sampleName='this', gsea.b=TRUE, 
     }
     my.heatmap(td, row.clust = FALSE, column.clust = F, 
                col.center.zero = F, column.label = NULL, 
-               col = color.gradient(low='white', high='red', n=100), 
+               col = color.gradient(low='white', middle = 'blue', high='red', n=100), 
                column.class = split(names(ccv), ccv), X11 = F)
   }
   dev.off()
@@ -851,11 +857,12 @@ check.geneset.batch <- function(d, norm.d, gsoi.l, min.sample.n=3, cell.class.ve
 
   for(gs.name in names(gsoi.l)){
     gs <- gsoi.l[[gs.name]]
-    x1 <- d[intersect(rownames(d), gs), , drop=F]
-    b <- apply(x1 > 0, 1, sum) > min.sample.n
-    raw.d.t <- x1[b, ,drop=F]
-    norm.d.t <- norm.d[rownames(raw.d.t), , drop=F]
-    res.l[[gs.name]] <- check.geneset(d = raw.d.t, norm.d = norm.d.t, gs = gs, gs.name =gs.name, 
+    ## x1 <- d[intersect(rownames(d), gs), , drop=F]
+    ## b <- apply(x1 > 0, 1, sum) > min.sample.n
+    ## raw.d.t <- x1[b, ,drop=F]
+    ## norm.d.t <- norm.d[rownames(raw.d.t), , drop=F]
+    ## res.l[[gs.name]] <- check.geneset(d = raw.d.t, norm.d = norm.d.t, gs = gs, gs.name =gs.name, 
+    res.l[[gs.name]] <- check.geneset(d = d, norm.d = norm.d, gs = gs, gs.name =gs.name, 
                                       cell.class.vector = cell.class.vector, 
                                       output.prefix = paste(output.prefix, gs.name, sep='_'), ...)
   }
@@ -1082,11 +1089,17 @@ sc.edgr <- function(xm, group1.ss, group2.ss, group1.name, group2.name){
   cell2group <- c(rep(group1.name, length(group1.ss)), rep(group2.name, length(group2.ss)))
   names(cell2group) <- c(group1.ss, group2.ss)
   
+  xd <- aggregate.II(m = xm[, names(cell2group)], v = cell2group, f = 'sum', byrow = F)
+  xd[,1] <- xd[,1]/sum(xd[,1]) * 10^6
+  xd[,2] <- xd[,2]/sum(xd[,2]) * 10^6
   d <- DGEList(counts=xm[, names(cell2group)], group=factor(cell2group))
   d <- calcNormFactors(d)
   d1 <- estimateCommonDisp(d, verbose=T)
   res <- exactTest(d1)
+  fdr <- p.adjust(res$table$PValue, method = 'fdr')
+  res$table <- cbind(res$table, FDR=fdr, xd[rownames(res$table), ])
   res$table <- res$table[order(res$table[, "PValue"]), ]
+  res$table <- as.matrix(res$table)
   invisible(res)
 }
 
@@ -1123,3 +1136,223 @@ read.10x.mtx <- function(matrix.dir, min.genes = 500){
   }
   invisible(mat)
 }
+
+check.cluster.identify <- function(cl.marker.l, cell.marker.l, tfs, cluster.d, gi, x11.b=TRUE, ...){
+  cl.cl <- my.hclust(log201(cluster.d), main="unsupervised hierarchical clustering of clusters", noX = T)
+  cluster.d <- cluster.d[, colnames(cluster.d)[cl.cl$order]]
+  
+  barplot(sort(sapply(cl.marker.l, length)), main='number of markers in each cluster', 
+               ylab='number of marker', xlab='cluster')
+  
+  cl.gsea.l <- list()
+  all.genes <- rownames(cluster.d)
+  marker.count.m <- matrix(0, nrow=length(cl.marker.l), ncol=length(cell.marker.l), 
+                           dimnames = list(names(cl.marker.l), names(cell.marker.l)))
+  for(i in names(cl.marker.l)){
+    cl.gsea.l[[i]] <- gsea.fisher(cl.marker.l[[i]], list2matrix(cell.marker.l), all.genes, min.pathway.size = 2, 
+                                  alternative = 'greater')
+    t <- sapply(cell.marker.l, function(x, y) length(intersect(x,y)), y=cl.marker.l[[i]])
+    t <- t/sapply(cell.marker.l, length)
+    marker.count.m[i, names(t)] <- t
+  }
+  
+  t <- sapply(cl.gsea.l, function(x) print(x[1:4, ]))
+  ## Too many markers appearing in most of clusters, so check the reason:
+  x <- sort(table(unlist(cl.marker.l)))
+  barplot((table(x)), las=2, xlab='number of appearance in clusters', ylab='number of markers')
+  
+  if(max(cluster.d) > 20){
+    cluster.d <- log201(cluster.d)
+  }
+  cl.markers <- unique(unlist(cl.marker.l))
+  co <- intersect(intersect(cl.markers, rownames(cluster.d)), unlist(cell.marker.l))
+  co <- c(co, PTPRC='5788')
+  
+  if(length(co) > 2){
+    my.heatmap(t(cluster.d[co, ]), column.label = gi[co, "Symbol"], row.label = 'as.is', grid = T, 
+               col.center.zero = F, col=color.gradient(low='white', middle = 'yellow', high = 'red', n = 100), X11 = x11.b, 
+               row.clust = F, main='cell markers', ...)
+    my.heatmap(t(cluster.d[co, ]), column.label = gi[co, "Symbol"], row.label = 'as.is', grid = T, 
+               col.center.zero = F, col=color.gradient(low='white', 'yellow', high = 'red', n = 100), X11 = x11.b, 
+               row.clust = T, main='cell markers', ...)
+  }
+  
+  co <- intersect(intersect(cl.markers, tfs), rownames(cluster.d))
+  if(length(co) > 2){
+    my.heatmap(t(cluster.d[co, ]), column.label = gi[co, "Symbol"], row.label = 'as.is', grid = T, 
+               col.center.zero = F, col=color.gradient(low='white', middle = 'blue', high = 'red', n = 100),
+               X11 = x11.b, 
+               row.clust = F, main='transcription factors', ...)
+    my.heatmap(t(cluster.d[co, ]), column.label = gi[co, "Symbol"], row.label = 'as.is', grid = T, 
+               col.center.zero = F, col=color.gradient(low='white', middle = 'blue', high = 'red', n = 100),
+               X11 = x11.b, 
+               row.clust = T, main='transcription factors', ...)
+    
+    tfs.marker.m <- matrix(0, nrow=length(cl.marker.l), ncol=length(co), dimnames = list(names(cl.marker.l), co))
+    for(tf in co){
+      t <- sapply(cl.marker.l, function(x, y) is.element(y, x), y=tf)
+      tfs.marker.m[names(t), tf] <- t    
+    }
+      
+    my.heatmap(tfs.marker.m, col=color.gradient('white', middle = 'blue', 'red'), grid = T, 
+               row.label = 'as.is', column.label = gi[colnames(tfs.marker.m), "Symbol"], col.center.zero = F, 
+               X11 = x11.b, row.clust = F, main='transcription factor appearance')
+  }
+  
+  my.heatmap(marker.count.m > 0, col=color.gradient('white', middle = 'blue', 'red'), grid = T, 
+             row.label = 'as.is', column.label = 'as.is', col.center.zero = F, X11 = x11.b, row.clust = F, 
+             main='cell marker appearance')
+  my.heatmap(marker.count.m > 0, col=color.gradient('white', middle = 'blue', 'red'), grid = T, 
+             row.label = 'as.is', column.label = 'as.is', col.center.zero = F, X11 = x11.b, row.clust = T, 
+             main='cell marker appearance')
+  my.heatmap(marker.count.m, col=color.gradient('white', middle = 'blue', 'red'), grid = T, 
+             row.label = 'as.is', column.label = 'as.is', col.center.zero = F, X11 = x11.b, row.clust = T, 
+             main='percentage of cell marker appeared')
+  
+  invisible(list(marker.count.m=marker.count.m, cl.gsea.l=cl.gsea.l))
+}
+
+gene2pathway <- function(wd, pathway.l, pathway.size.cutoff = 5){
+  b <- sapply(pathway.l, function(x, gs) length(intersect(x, gs)), gs = rownames(wd)) > pathway.size.cutoff 
+  pathway.l <- pathway.l[b]
+  pm <- sapply(pathway.l, function(x, d){
+    co <- intersect(x, rownames(d))
+    t2 <- NULL
+    if(length(co) > 1){
+      t1 <- d[co, ] > 0
+      t2 <- apply(t1, 2, function(x, n) sum(x)/n, n=length(co))
+    }
+    return(t2)
+  }, d=wd)
+  pm <- t(as.matrix(pm))
+  invisible(pm)
+}
+
+cluster.pathway.analysis <- function(cl.marker.l, pathway.l, all.genes, min.pathway.size, pathwayName, 
+                                     alternative=c("greater", "two.sided", "less")){
+  alternative <- match.arg(alternative)
+  cl.pathway.l <- list()
+  cl.pathway.m <- NULL
+  co.pathway <- names(pathway.l)[sapply(pathway.l, length) > min.pathway.size]
+  
+  for(cluster in names(cl.marker.l)){
+    cl.pathway.l[[cluster]] <- gsea.fisher(cl.marker.l[[cluster]], genesets = list2matrix(pathway.l), 
+                                           all = rownames(wd), min.pathway.size = min.pathway.size, 
+                                           alternative = alternative)
+    cl.pathway.m <- cbind(cl.pathway.m, cl.pathway.l[[cluster]][co.pathway, 1])
+  }
+  colnames(cl.pathway.m) <- names(cl.pathway.l)
+  
+  write.csv(cl.pathway.m, file=file.path(output.dir, 
+                                         paste('cluster', pathwayName, 'enrichment.csv', sep='.')))
+  
+  invisible(list(l=cl.pathway.l, m=cl.pathway.m))
+}
+
+
+check.geneset.wrapper <- function(wd, gsoi.l, cell.info, comparison.schema.list, 
+                                  output.dir, cellType=NULL, title=NULL, max.gene.n=205, ...){
+  cell2class <- cell.info[, "cluster"]
+  cell2class <- sort(cell2class)
+  
+  wd <- wd[, names(cell2class)]
+  
+  gsoi.l <- lapply(gsoi.l, function(x, n) x[1:min(length(x), n)], n=max.gene.n)
+  
+  check.geneset.batch(d = wd, norm.d = wd, gsoi.l = gsoi.l, min.sample.n = 0, row.clust = T,  
+                      cell.class.vector = cell2class, main=paste(title, cellType, 'cluster', sep='_'),
+                      output.prefix = file.path(output.dir, paste(cellType, 'cluster_heatmap', sep='_')), 
+                      ...)
+  
+  if(length(unique(cell.info[, "sid"])) > 1){  ##  Single sample analysis, OR NOT?
+    for(cmpr in names(comparison.schema.list)){
+      pair.name <- paste(names(comparison.schema.list[[cmpr]]), collapse ='_vs_')
+      main <- paste(c(title, cellType, cmpr, pair.name), collapse ='_')
+      sample2class <- list2vector(comparison.schema.list[[cmpr]])
+      cells <-  rownames(cell.info)[is.element(cell.info[, "sid"], names(sample2class))]
+      cell2class <- sample2class[cell.info[cells, "sid"]]
+      names(cell2class) <- cells
+      cell2class <- sort(cell2class)
+      
+      this.wd <- wd[, names(cell2class)]
+      check.geneset.batch(d = this.wd, norm.d = this.wd, gsoi.l = gsoi.l, min.sample.n = 0, row.clust = T,
+                          cell.class.vector = cell2class, main=main,
+                          output.prefix = file.path(output.dir, paste(main, 'heatmap', sep='_')), ...)
+    }
+  }
+}
+
+
+sc.single.gene.analysis <- function(wd, umap.d, gene, cell.info, comparison.schema.list, title=NULL, 
+                                    cellType=NULL){
+  if(is.element(gene, rownames(wd)) & !is.null(title)){
+    gid <- gene
+  }else{
+    gi <- get.gene.info(gene)
+    if(nrow(gi) > 1){
+      stop('More than 1 record found for the gene.')
+    }
+    gid <- gi[,"GeneID"]
+    gene.name <- gi[, "Symbol"]
+    
+    if(is.null(title)){
+      title <- gene.name
+    }
+  }
+  
+  b <- wd[gid, ] > 0
+  plot.tsne.II(umap.d, split(names(b), b), main=title)
+  
+  l <- split(wd[gid, ], cell.info[colnames(wd), "cluster"]) 
+  nms <- as.character(sort(unique(cell.info[, "cluster"])))
+  l <- l[nms]
+  names(l) <- paste('c', names(l), sep='')
+  
+  my.vioplot(l, main=paste(title, 'cluster', sep='::'), las=2)
+  
+  means <- sort(sapply(l, mean))
+  set.seed(1)
+  cols <- sample(rainbow(12), length(means), replace = T)
+  barplot(means, col=cols, main=paste(title, 'cluster', sep='::'), las=2)
+  
+  if(length(unique(cell.info[, "sid"])) > 1){  ##  Single sample analysis, OR NOT?
+    for(cmpr in names(comparison.schema.list)){
+      pair.name <- paste(names(comparison.schema.list[[cmpr]]), collapse ='_vs_')
+      main <- paste(c(title, cellType, cmpr, pair.name), collapse ='_')
+      sample2class <- list2vector(comparison.schema.list[[cmpr]])
+      cells <-  rownames(cell.info)[is.element(cell.info[, "sid"], names(sample2class))]
+      cell2class <- sample2class[cell.info[cells, "sid"]]
+      names(cell2class) <- cells
+      cell2class <- sort(cell2class)
+      
+      l <- split(wd[gid, ], cell2class[colnames(wd)])
+      
+      my.vioplot(l, main=main, las=2)
+      
+      means <- sort(sapply(l, mean))
+      set.seed(1)
+      cols <- sample(rainbow(12), length(means), replace = T)
+      barplot(means, col=cols, main=main, las=2)
+    }
+  }
+}
+
+plot.umap <- function(umap.d, x, x.range=c(0,1), col=NULL, plot.color.bar=TRUE, ...){
+  library(colourschemes)
+  if(is.null(col)){
+    pal <- color.gradient(low='white', middle = 'blue', high = 'red', n = 100)
+    z <- nearestScheme(data.frame(col=pal,values=seq(0,1, length.out = 100)))
+    col <- z(x)
+  }
+  
+  cb.x.pos <- ceiling(min(umap.d[, 1])) + 3
+  cb.y.pos <- floor(max(umap.d[,2])) - 1
+  
+  plot(umap.d[names(x), ], col=col, pch='.', ...)
+  
+  if(plot.color.bar){
+    colorbar.plot(cb.x.pos, cb.y.pos, 1:100, strip.length = 0.25, strip.width = 0.05,
+                  col=z(seq(x.range[1], x.range[2], length.out = 100)))
+  }
+}
+
